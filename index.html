@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1214">
+<title>Road Voice Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one dashboard-style screen, dark by design for night driving; big status, tuner strip, one control. */
+:root{
+  --bg:#0d1214; --panel:#151d20; --line:#24302f; --fg:#e6ece9; --dim:#8a9a96;
+  --amber:#f2b33d; --good:#5fd3a0; --warn:#f07a5a;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 var(--display);
+  padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px);}
+.wrap{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:18px;padding-block:20px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+h1{font-size:1.25rem;font-weight:700;margin:0;letter-spacing:.01em}
+h1 span{color:var(--amber)}
+.links{display:flex;gap:14px}
+.links button{background:none;border:0;color:var(--dim);font:500 .85rem var(--mono);padding:6px 0;cursor:pointer}
+.links button:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.stage{font:500 .78rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--amber)}
+.say{font-size:1.45rem;font-weight:500;line-height:1.3;min-height:3.9em;text-wrap:balance;margin:0}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.note small{display:block;font:500 .72rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.note b{display:block;font:700 2.4rem/1.1 var(--display);font-variant-numeric:tabular-nums}
+.note.you b{color:var(--good)}
+.tuner{position:relative;height:46px;border-radius:8px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.tuner .zone{position:absolute;top:0;bottom:0;left:42%;width:16%;background:color-mix(in srgb,var(--good) 14%,transparent)}
+.tuner .mid{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--dim)}
+.tuner .needle{position:absolute;top:6px;bottom:6px;width:6px;margin-left:-3px;border-radius:3px;background:var(--fg);left:50%;transition:left .08s linear;opacity:.25}
+.scale{display:flex;justify-content:space-between;font:.72rem var(--mono);color:var(--dim);margin-top:4px}
+.level{height:6px;border-radius:3px;background:var(--panel);overflow:hidden}
+.level i{display:block;height:100%;width:0;background:var(--dim);transition:width .08s}
+.main{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.go{appearance:none;border:0;border-radius:14px;padding:26px 18px;font:700 1.6rem var(--display);
+  background:var(--amber);color:#1a1405;cursor:pointer}
+.go.stop{background:var(--panel);color:var(--warn);border:1px solid var(--warn)}
+.hint{color:var(--dim);font-size:.9rem;margin:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:1rem}
+label{display:flex;flex-direction:column;gap:6px;font-size:.9rem;color:var(--dim)}
+select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;max-width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer}
+.history{font:.85rem var(--mono);color:var(--dim);display:grid;grid-template-columns:auto auto auto;gap:4px 16px;font-variant-numeric:tabular-nums}
+.history .h{color:var(--fg)}
+@media (prefers-reduced-motion:reduce){.tuner .needle,.level i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Road Voice <span>Coach</span></h1>
+    <div class="links">
+      <button id="testBtn" type="button">Mic test</button>
+      <button id="setBtn" type="button">Settings</button>
+    </div>
+  </header>
+
+  <div>
+    <div class="stage" id="stage">Ready</div>
+    <p class="say" id="say">Press Start when you set off. The coach talks you through warm-ups, pitch exercises and free singing, and keeps going until you press Stop.</p>
+  </div>
+
+  <div class="notes">
+    <div class="note"><small>Target</small><b id="target">–</b></div>
+    <div class="note you"><small>You</small><b id="you">–</b></div>
+  </div>
+  <div>
+    <div class="tuner" aria-hidden="true"><div class="zone"></div><div class="mid"></div><div class="needle" id="needle"></div></div>
+    <div class="scale"><span>−50¢ flat</span><span>in tune</span><span>sharp +50¢</span></div>
+  </div>
+  <div class="level" aria-hidden="true"><i id="lvl"></i></div>
+
+  <section class="panel" id="settings" hidden>
+    <h2>Settings</h2>
+    <label for="micSel">Microphone (pick the phone's own mic when the car is connected over Bluetooth)
+      <select id="micSel"><option value="">Automatic: prefer phone mic</option></select></label>
+    <label for="voiceSel">Coach voice
+      <select id="voiceSel"><option value="">Default English voice</option></select></label>
+    <label for="nsSel">Road-noise filter
+      <select id="nsSel"><option value="0">Off (most accurate pitch)</option><option value="1">On (try if it hears engine noise as singing)</option></select></label>
+    <div>
+      <div class="history" id="hist"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="resetBtn" type="button">Forget my range and history</button>
+    </div>
+    <p class="hint" id="resetMsg" hidden>Range and history cleared. The next session measures your range again.</p>
+  </section>
+
+  <div class="main">
+    <button class="go" id="goBtn" type="button">Start</button>
+    <p class="hint" id="hint">Keep this screen open. Mount the phone where its mic can hear you.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- music helpers ---------- */
+const NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+const ftom=f=>69+12*Math.log2(f/440);
+const nname=m=>{const r=Math.round(m);return NAMES[(r%12+12)%12]+(Math.floor(r/12)-1)};
+const spoken=m=>nname(m).replace("#"," sharp ");
+const median=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y);const k=s.length>>1;return s.length%2?s[k]:(s[k-1]+s[k])/2};
+const mean=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
+const pct=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.max(0,Math.round(p*(s.length-1))))]};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ---------- YIN pitch detection ---------- */
+function yin(buf,sr){
+  const W=buf.length>>1, minLag=Math.floor(sr/1100), maxLag=Math.min(W-1,Math.floor(sr/65));
+  const d=new Float32Array(maxLag+2);
+  for(let t=1;t<=maxLag+1;t++){let s=0;for(let i=0;i<W;i++){const x=buf[i]-buf[i+t];s+=x*x}d[t]=s}
+  const raw=d.slice();
+  let run=0;d[0]=1;
+  for(let t=1;t<=maxLag+1;t++){run+=d[t];d[t]=run?d[t]*t/run:1}
+  let tau=-1;
+  for(let t=minLag;t<=maxLag;t++){if(d[t]<0.15){while(t+1<=maxLag&&d[t+1]<d[t])t++;tau=t;break}}
+  if(tau<0){let best=minLag;for(let t=minLag;t<=maxLag;t++)if(d[t]<d[best])best=t;if(d[best]<0.25)tau=best;else return null}
+  const conf=1-d[tau];
+  {const w=Math.max(2,Math.round(tau*0.08));let best=tau;
+   for(let t=Math.max(minLag,tau-w);t<=Math.min(maxLag,tau+w);t++)if(raw[t]<raw[best])best=t;tau=best}
+  const a=raw[tau-1],b=raw[tau],c=raw[tau+1];const den=a+c-2*b;
+  const bt=den>0?tau+(a-c)/(2*den):tau;
+  return {f:sr/bt,c:conf};
+}
+
+/* ---------- segmenting and scoring ---------- */
+function segments(frames,minFrames=5){
+  const segs=[];let cur=null;
+  const close=()=>{if(cur&&cur.ms.length>=minFrames)segs.push(cur);cur=null};
+  for(const f of frames){
+    if(f.m==null){if(cur&&f.t-cur.end>160)close();continue}
+    if(cur&&Math.abs(f.m-cur.last)<0.6&&f.t-cur.end<=160){cur.ms.push(f.m);cur.end=f.t;cur.last=f.m}
+    else{close();cur={start:f.t,end:f.t,ms:[f.m],last:f.m}}
+  }
+  close();
+  const out=[];
+  for(const s of segs){
+    const n=s.ms.length, core=s.ms.slice(Math.floor(n*0.2),Math.max(Math.floor(n*0.2)+1,Math.ceil(n*0.9)));
+    const p=median(core), sd=Math.sqrt(mean(core.map(x=>(x-p)**2)))*100;
+    const prev=out[out.length-1];
+    if(prev&&Math.abs(prev.p-p)<0.4&&s.start-prev.end<300){prev.ms.push(...s.ms);prev.end=s.end;prev.p=median(prev.ms);continue}
+    out.push({start:s.start,end:s.end,ms:s.ms,p,sd,first:median(s.ms.slice(0,Math.max(2,Math.floor(n*0.3)))),last:median(s.ms.slice(-Math.max(2,Math.floor(n*0.3))))});
+  }
+  return out;
+}
+/* align sung segments to target notes; returns per-target error in cents (null = missed) and octave shift */
+function scoreSeq(frames,targets){
+  const segs=segments(frames);
+  if(!segs.length)return {errs:targets.map(()=>null),oct:0,segs};
+  const offs=segs.map(s=>{let best=1e9;for(const t of targets){const d=s.p-t;if(Math.abs(d)<Math.abs(best))best=d}return Math.round(best/12)*12});
+  const cnt={};offs.forEach(o=>cnt[o]=(cnt[o]||0)+1);
+  const oct=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  const P=segs.map(s=>s.p-oct), T=targets.length, S=P.length;
+  const INF=1e9, dp=Array.from({length:T+1},()=>new Array(S+1).fill(INF)), bk=Array.from({length:T+1},()=>new Array(S+1).fill(0));
+  dp[0][0]=0;
+  for(let i=0;i<=T;i++)for(let j=0;j<=S;j++){
+    if(i===0&&j===0)continue;
+    let v=INF,b=0;
+    if(i>0&&j>0){const c=dp[i-1][j-1]+Math.min(Math.abs(P[j-1]-targets[i-1]),2.5);if(c<v){v=c;b=1}}
+    if(j>0){const c=dp[i][j-1]+1.0;if(c<v){v=c;b=2}}
+    if(i>0){const c=dp[i-1][j]+3.0;if(c<v){v=c;b=3}}
+    dp[i][j]=v;bk[i][j]=b;
+  }
+  const errs=new Array(T).fill(null), sds=new Array(T).fill(null);
+  let i=T,j=S;
+  while(i>0||j>0){const b=bk[i][j];if(b===1){const e=(P[j-1]-targets[i-1])*100;if(Math.abs(e)<250){errs[i-1]=e;sds[i-1]=segs[j-1].sd}i--;j--}else if(b===2)j--;else i--}
+  return {errs,sds,oct,segs};
+}
+function freeAnalysis(frames){
+  const segs=segments(frames,6);
+  const voicedSec=frames.filter(f=>f.m!=null).length*0.04;
+  if(voicedSec<5||segs.length<4)return null;
+  const off=ps=>{let sx=0,cx=0;for(const p of ps){const a=2*Math.PI*(p-Math.round(p));sx+=Math.sin(a);cx+=Math.cos(a)}return Math.atan2(sx,cx)/(2*Math.PI)};
+  const ps=segs.map(s=>s.p), o=off(ps);
+  const devs=ps.map(p=>{let d=p-Math.round(p)-o;d-=Math.round(d);return d*100});
+  const spread=Math.sqrt(mean(devs.map(d=>d*d)));
+  const held=segs.filter(s=>s.end-s.start>=500);
+  const wobble=held.length?mean(held.map(s=>s.sd)):null;
+  const h=Math.floor(ps.length/2);
+  let drift=null;if(ps.length>=8){let d=(off(ps.slice(h))-off(ps.slice(0,h)))*100;drift=d}
+  return {spread,wobble,drift,lo:pct(ps,0.05),hi:pct(ps,0.95),voicedSec,n:segs.length};
+}
+
+/* ---------- storage ---------- */
+const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- state ---------- */
+const S={running:false,stop:false,mode:null,ctx:null,an:null,stream:null,buf:null,timer:null,
+  noise:0.004,frames:null,wake:null,voice:null,misses:0,scores:[],wobbles:[],round:0,sessionStart:0};
+const $=id=>document.getElementById(id);
+const ui={stage:$("stage"),say:$("say"),target:$("target"),you:$("you"),needle:$("needle"),lvl:$("lvl"),go:$("goBtn"),hint:$("hint")};
+let targetMidi=null;
+function setTarget(m){targetMidi=m;ui.target.textContent=m==null?"–":nname(m)}
+
+class Stopped extends Error{}
+const chk=()=>{if(S.stop)throw new Stopped()};
+const sleep=ms=>new Promise((res,rej)=>{const t0=performance.now();const iv=setInterval(()=>{if(S.stop){clearInterval(iv);rej(new Stopped())}else if(performance.now()-t0>=ms){clearInterval(iv);res()}},40)});
+
+/* ---------- audio in ---------- */
+async function pickDeviceId(){
+  const chosen=store.get("mic","");
+  if(chosen)return chosen;
+  try{
+    const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput");
+    const phone=ds.find(d=>d.label&&!/bluetooth|headset|hands.?free|car|sco/i.test(d.label)&&d.deviceId!=="default"&&d.deviceId!=="communications");
+    return phone?phone.deviceId:"";
+  }catch(e){return ""}
+}
+async function openMic(){
+  S.ctx=S.ctx||new (window.AudioContext||window.webkitAudioContext)();
+  await S.ctx.resume();
+  const ns=store.get("ns","0")==="1";
+  const base={echoCancellation:false,autoGainControl:false,noiseSuppression:ns};
+  let stream=await navigator.mediaDevices.getUserMedia({audio:base});
+  const id=await pickDeviceId();
+  const curId=stream.getAudioTracks()[0].getSettings().deviceId;
+  if(id&&id!==curId){
+    try{const s2=await navigator.mediaDevices.getUserMedia({audio:{...base,deviceId:{exact:id}}});stream.getTracks().forEach(t=>t.stop());stream=s2}catch(e){}
+  }
+  S.stream=stream;
+  const src=S.ctx.createMediaStreamSource(stream);
+  const hp=S.ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=65;
+  const lp=S.ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=1800;
+  S.an=S.ctx.createAnalyser();S.an.fftSize=4096;
+  src.connect(hp);hp.connect(lp);lp.connect(S.an);
+  S.buf=new Float32Array(S.an.fftSize);
+  S.timer=setInterval(tick,40);
+  fillMics();
+}
+function closeMic(){
+  clearInterval(S.timer);S.timer=null;
+  if(S.stream)S.stream.getTracks().forEach(t=>t.stop());S.stream=null;
+}
+function tick(){
+  S.an.getFloatTimeDomainData(S.buf);
+  let r=0;for(let i=0;i<S.buf.length;i++)r+=S.buf[i]*S.buf[i];r=Math.sqrt(r/S.buf.length);
+  let m=null;
+  if(r>Math.max(0.002,S.noise*2.5)){const p=yin(S.buf,S.ctx.sampleRate);if(p&&p.c>0.8&&p.f>65&&p.f<1100)m=ftom(p.f)}
+  if(S.frames)S.frames.push({t:performance.now(),m,r});
+  ui.lvl.style.width=Math.min(100,r*900)+"%";
+  if(m!=null){
+    ui.you.textContent=nname(m);
+    const ref=targetMidi!=null?targetMidi:Math.round(m);
+    let c=(m-ref)*100; if(targetMidi!=null)c-=Math.round(c/1200)*1200;
+    ui.needle.style.left=(50+Math.max(-50,Math.min(50,c)))+"%";
+    ui.needle.style.opacity=1;
+    ui.needle.style.background=Math.abs(c)<=8?"var(--good)":Math.abs(c)<=25?"var(--fg)":"var(--warn)";
+  }else{ui.needle.style.opacity=.25}
+}
+async function calibrate(ms){
+  const rs=[];S.frames=[];await sleep(ms);for(const f of S.frames)rs.push(f.r);S.frames=null;
+  if(rs.length)S.noise=Math.max(0.0015,pct(rs,0.8));
+}
+/* listen until the singer finishes. */
+async function listen({max=8000,wait=6000,endSil=1200}={}){
+  S.frames=[];const t0=performance.now();let first=0,last=0;
+  while(true){
+    await sleep(50);
+    const now=performance.now()-t0, fr=S.frames;
+    for(let k=fr.length-1;k>=0&&k>=fr.length-3;k--){if(fr[k].m!=null){last=fr[k].t-t0;if(!first)first=last;break}}
+    if(now>max)break;
+    if(!first&&now>wait)break;
+    if(first&&now-last>endSil&&now-first>600)break;
+  }
+  const f=S.frames;S.frames=null;
+  const voiced=f.filter(x=>x.m!=null).length;
+  if(voiced<8)S.misses++;else S.misses=0;
+  return f;
+}
+
+/* ---------- audio out ---------- */
+function tone(m,t,d,vol=0.3){
+  const c=S.ctx,f=mtof(m);
+  const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.03);
+  g.gain.setTargetAtTime(vol*0.7,t+0.06,0.2);g.gain.setTargetAtTime(0,t+d-0.06,0.04);
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=2600;
+  const o1=c.createOscillator();o1.type="triangle";o1.frequency.value=f;
+  const o2=c.createOscillator();o2.type="sine";o2.frequency.value=f*2;const g2=c.createGain();g2.gain.value=0.22;
+  o1.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(g);g.connect(c.destination);
+  o1.start(t);o2.start(t);o1.stop(t+d+0.3);o2.stop(t+d+0.3);
+}
+async function play(ms,dur=0.75,gap=0.06){
+  chk();const t0=S.ctx.currentTime+0.06;
+  ms.forEach((m,i)=>tone(m,t0+i*(dur+gap),dur));
+  for(let i=0;i<ms.length;i++){setTimeout(()=>{if(!S.stop)setTarget(ms[i])},(0.06+i*(dur+gap))*1000)}
+  await sleep(ms.length*(dur+gap)*1000+350);
+}
+function speak(text,caption=true){
+  chk();
+  if(caption)ui.say.textContent=text;
+  return new Promise((res,rej)=>{
+    let done=false;const fin=()=>{if(done)return;done=true;clearInterval(iv);S.stop?rej(new Stopped()):setTimeout(res,150)};
+    const iv=setInterval(()=>{if(S.stop){speechSynthesis.cancel();fin()}},100);
+    if(!("speechSynthesis" in window)){setTimeout(fin,1200+text.length*60);return}
+    const u=new SpeechSynthesisUtterance(text);u.lang="en-GB";if(S.voice)u.voice=S.voice;u.rate=1.0;
+    u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);
+    setTimeout(fin,2500+text.length*95);
+  });
+}
+function loadVoices(){
+  const vs=(speechSynthesis.getVoices()||[]).filter(v=>/^en/i.test(v.lang));
+  const want=store.get("voice","");
+  S.voice=vs.find(v=>v.name===want)||vs.find(v=>/en-GB/i.test(v.lang))||vs[0]||null;
+  const sel=$("voiceSel");const cur=sel.value||want;
+  sel.innerHTML='<option value="">Default English voice</option>'+vs.map(v=>`<option value="${v.name.replace(/"/g,"&quot;")}">${v.name} (${v.lang})</option>`).join("");
+  sel.value=cur;
+}
+if("speechSynthesis" in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+
+/* ---------- feedback wording ---------- */
+const dir=e=>e>0?"sharp":"flat";
+function amount(a){return a<15?"":a<35?"a little ":a<70?"":"quite "}
+const POS=(i,n)=>i===0?"the first note":i===n-1?"the last note":`note ${i+1}`;
+function seqFeedback(r,targets){
+  const ok=r.errs.map((e,i)=>({e,i})).filter(x=>x.e!=null);
+  if(ok.length<Math.ceil(targets.length/2))return {text:pick(["I couldn't follow that one.","I didn't catch enough of that."]),retry:true};
+  const abs=ok.map(x=>Math.abs(x.e)), avg=mean(abs), bias=mean(ok.map(x=>x.e));
+  S.scores.push(avg);
+  const parts=[];
+  if(r.oct)parts.push(r.oct<0?"An octave lower, which is fine.":"An octave higher, which is fine.");
+  if(avg<15)parts.push(pick(["Spot on.","Very accurate.","Lovely, right in tune."]));
+  else if(avg<30)parts.push(pick(["Good.","Close.","Nicely done."]));
+  else if(avg<60)parts.push(pick(["Getting there.","Not bad.","Okay."]));
+  else parts.push(pick(["That one was quite far off.","Hmm, that drifted."]));
+  if(avg>=15&&Math.abs(bias)>=18)parts.push(`You were ${amount(Math.abs(bias))}${dir(bias)} overall.`);
+  if(targets.length>2){
+    const w=ok.reduce((a,b)=>Math.abs(b.e)>Math.abs(a.e)?b:a);
+    if(Math.abs(w.e)>40){
+      const hi=targets.indexOf(Math.max(...targets));
+      const where=w.i===hi?"the top note":POS(w.i,targets.length);
+      parts.push(`Watch ${where}, it was ${dir(w.e)}.`);
+    }
+  }
+  return {text:parts.join(" "),retry:avg>=70,avg};
+}
+function holdFeedback(frames,target){
+  const segs=segments(frames);if(!segs.length)return {text:"I didn't hear a note there.",retry:true};
+  const s=segs.reduce((a,b)=>(b.end-b.start)>(a.end-a.start)?b:a);
+  let e=(s.p-target)*100;e-=Math.round(e/1200)*1200;
+  const dur=(s.end-s.start)/1000, drift=(s.last-s.first)*100;
+  S.scores.push(Math.abs(e));S.wobbles.push(s.sd);
+  const parts=[];
+  parts.push(Math.abs(e)<15?pick(["Right on the note.","In tune."]):`${amount(Math.abs(e))}${dir(e)}`.replace(/^./,c=>c.toUpperCase())+".");
+  if(s.sd<12)parts.push("Very steady.");else if(s.sd>28)parts.push("It wobbled, so keep the air flowing evenly.");
+  if(Math.abs(drift)>30)parts.push(drift<0?"It sagged towards the end, so keep the support going.":"It crept up towards the end.");
+  if(dur<2.5)parts.push("Try holding it longer.");
+  return {text:parts.join(" "),retry:false};
+}
+
+/* ---------- range ---------- */
+function profile(){return store.get("profile",null)}
+function band(p){
+  let lo=Math.max(p.low+1,p.home-5),hi=Math.min(p.high-1,p.home+9);
+  if(hi-lo<8){lo=p.home-4;hi=p.home+5}
+  return {lo,hi};
+}
+async function findRange(){
+  ui.stage.textContent="Finding your voice";
+  let home=null;
+  for(let a=0;a<2&&home==null;a++){
+    await speak(a?"Let's try again. Hum or sing ah on any easy note, and hold it.":"First, hum or sing ah on any comfortable note, and hold it for a few seconds.");
+    const f=await listen({max:7000,wait:7000,endSil:1000});
+    const ms=f.filter(x=>x.m!=null).map(x=>x.m);
+    if(ms.length>15)home=Math.round(median(ms));
+  }
+  const old=profile();
+  if(home==null)home=old?old.home:55;
+  await speak("Now slide from your lowest note up to your highest and back down, like a siren, on oo.");
+  const f=await listen({max:10000,wait:6000,endSil:1600});
+  const ms=f.filter(x=>x.m!=null).map(x=>x.m);
+  let low=home-6,high=home+8;
+  if(ms.length>20){const l=Math.round(pct(ms,0.05)),h=Math.round(pct(ms,0.95));if(h-l>=7){low=Math.min(l,home-2);high=Math.max(h,home+3)}}
+  if(old){low=Math.round((low+old.low)/2);high=Math.round((high+old.high)/2);home=Math.round((home+old.home)/2)}
+  const p={home,low,high};store.set("profile",p);
+  await speak(`Got it. Your comfortable note is around ${spoken(home)}, and your range today goes from ${spoken(low)} to ${spoken(high)}.`);
+  return p;
+}
+
+/* ---------- exercise blocks ---------- */
+async function rep(targets,{dur=0.75,intro=null,maxListen=null}={}){
+  for(let attempt=0;attempt<2;attempt++){
+    if(intro&&attempt===0)await speak(intro);
+    await play(targets,dur);
+    ui.stage.textContent=ui.stage.textContent.replace(/ · .*$/,"")+" · your turn";
+    const f=await listen({max:maxListen||(targets.length*(dur+0.25)*1000+4500),wait:5000});
+    ui.stage.textContent=ui.stage.textContent.replace(/ · .*$/,"");
+    if(S.misses>=3)await waitForSinger();
+    const fb=targets.length===1&&dur>2?holdFeedback(f,targets[0]):seqFeedback(scoreSeq(f,targets),targets);
+    await speak(fb.text);
+    if(!fb.retry||attempt===1)return;
+    await speak("Once more.");
+  }
+}
+async function waitForSinger(){
+  ui.stage.textContent="Paused";
+  await speak("I'll wait. Sing any note whenever you're ready to carry on.");
+  setTarget(null);
+  while(true){
+    S.frames=[];await sleep(1500);
+    const v=S.frames.filter(x=>x.m!=null).length;S.frames=null;
+    if(v>=15)break;
+  }
+  S.misses=0;
+  await speak("Welcome back.");
+}
+function block(name){ui.stage.textContent=name}
+
+async function warmup(p){
+  block("Warm-up");
+  await speak("Let's warm up. Do a gentle lip trill or a hum, sliding up and down. I'll give you twenty seconds.",true);
+  await sleep(20000);
+  await rep([p.home],{dur:2.5,intro:"Now match this note and hold it.",maxListen:9000});
+}
+async function pitchMatch(p,n){
+  block("Pitch matching");
+  await speak("Pitch matching. I play a note, you sing it back on ah.");
+  const {lo,hi}=band(p);
+  for(let i=0;i<n;i++){chk();await rep([lo+Math.floor(Math.random()*(hi-lo-2))],{dur:1.2})}
+}
+async function scales(p,round){
+  block("Scales");
+  const {lo,hi}=band(p);
+  const pat=round<2?[0,2,4,5,7,5,4,2,0]:(hi-lo>=13?[0,2,4,5,7,9,11,12,11,9,7,5,4,2,0]:[0,4,7,12,7,4,0].filter(x=>x<=hi-lo));
+  const span=Math.max(...pat);
+  await speak(round<2?"Scales. Listen to the pattern, then sing it back on ah or on numbers.":"A longer scale this time. Listen, then sing it back.");
+  let root=lo;
+  for(let i=0;i<4;i++){chk();if(root+span>hi)root=lo;await rep(pat.map(x=>root+x),{dur:round<2?0.6:0.5});root++}
+}
+async function intervals(p,n){
+  block("Intervals");
+  await speak("Intervals. Two notes, then you sing both.");
+  const {lo,hi}=band(p);
+  const ivs=[4,7,3,5,2,12,9];
+  for(let i=0;i<n;i++){chk();const iv=ivs.filter(x=>lo+x<=hi);const k=pick(iv);const r=lo+Math.floor(Math.random()*Math.max(1,hi-lo-k));await rep([r,r+k],{dur:0.9})}
+}
+async function longTones(p){
+  block("Long notes");
+  await speak("Long notes. Take a good breath, then hold each note as steady as you can for about six seconds.");
+  for(const k of [0,2,4]){chk();await rep([p.home+k],{dur:2.5,maxListen:11000})}
+}
+async function freeSing(rounds){
+  block("Free singing");
+  await speak("Free singing. Sing any song you like, without the radio. I'll listen for a minute and tell you how it went.");
+  for(let i=0;i<rounds;i++){
+    chk();setTarget(null);
+    ui.stage.textContent="Free singing · listening";
+    const f=await listen({max:60000,wait:12000,endSil:9000});
+    ui.stage.textContent="Free singing";
+    if(S.misses>=3)await waitForSinger();
+    const a=freeAnalysis(f);
+    if(!a){await speak("I didn't hear enough singing there. Go again whenever you like.");continue}
+    const parts=[];
+    if(a.spread<20)parts.push("Your notes sat nicely in tune with each other.");
+    else if(a.spread<35)parts.push("Mostly in tune, with a few notes slipping.");
+    else parts.push("The pitch wandered quite a bit. Try a slower song and really listen to each note.");
+    if(a.wobble!=null)parts.push(a.wobble<15?"Long notes were steady.":"Your long notes wobbled a little.");
+    if(a.drift!=null&&Math.abs(a.drift)>25)parts.push(`You drifted ${a.drift<0?"flat":"sharp"} as you went on.`);
+    parts.push(`You used ${Math.round(a.hi-a.lo)} semitones, from ${spoken(a.lo)} to ${spoken(a.hi)}.`);
+    S.scores.push(a.spread);
+    await speak(parts.join(" "));
+    if(i<rounds-1)await speak("Keep going, another minute.");
+  }
+}
+async function summary(){
+  if(!S.scores.length)return;
+  const avg=Math.round(mean(S.scores));
+  const hist=store.get("history",[]);
+  const prev=hist.length?hist[hist.length-1]:null;
+  let t=`So far today you're about ${avg} cents off on average. A hundred cents is one semitone.`;
+  if(prev&&S.round===1){const d=prev.err-avg;t+=Math.abs(d)<3?` That's about the same as last time.`:d>0?` That's ${Math.round(d)} cents better than last time.`:` Last time was ${Math.round(-d)} cents better, so no worries, it varies with the day.`}
+  await speak(t);
+}
+function saveSession(){
+  if(S.scores.length<4)return;
+  const hist=store.get("history",[]);
+  hist.push({d:new Date().toISOString().slice(0,10),err:Math.round(mean(S.scores)),min:Math.round((performance.now()-S.sessionStart)/60000)});
+  store.set("history",hist.slice(-60));
+  renderHist();
+}
+
+/* ---------- session ---------- */
+async function session(){
+  S.scores=[];S.wobbles=[];S.round=0;S.misses=0;S.sessionStart=performance.now();
+  ui.stage.textContent="Starting";
+  await speak("Hi, I'm your singing coach. Keep your eyes on the road; everything happens by voice. Stay quiet for a moment while I listen to the car.");
+  await calibrate(2500);
+  let p=profile();
+  if(!p||(store.get("rangeDate","")!==new Date().toISOString().slice(0,10)))p=await findRange();
+  store.set("rangeDate",new Date().toISOString().slice(0,10));
+  while(true){
+    S.round++;
+    if(S.round===1)await warmup(p);
+    await pitchMatch(p,S.round===1?5:4);
+    await scales(p,S.round);
+    await intervals(p,5);
+    await longTones(p);
+    await freeSing(2);
+    await summary();
+    await speak("Let's do another round.");
+  }
+}
+async function start(mode){
+  if(S.running)return;
+  S.running=true;S.stop=false;S.mode=mode;
+  ui.go.textContent="Stop";ui.go.classList.add("stop");
+  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Press Stop when you arrive. Progress is saved.";
+  try{
+    if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
+    try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}
+    await openMic();
+    if(mode==="test"){ui.stage.textContent="Mic test";ui.say.textContent="Sing a note. The You box and the needle should follow your voice. If the level bar jumps while you're silent, turn on the road-noise filter in Settings.";await calibrate(1500);
+      while(true){await sleep(200);}}
+    await session();
+  }catch(e){
+    if(!(e instanceof Stopped)){ui.stage.textContent="Something went wrong";ui.say.textContent=e&&e.name==="NotAllowedError"?"The microphone was blocked. Allow microphone access for this page in Chrome, then press Start again.":"Could not start: "+(e&&e.message||e)}
+  }finally{
+    if(mode!=="test")saveSession();
+    closeMic();try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
+    S.running=false;ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";
+    if(S.stop){ui.stage.textContent="Stopped";ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. See you on the next drive.";}
+    ui.hint.textContent="Keep this screen open. Mount the phone where its mic can hear you.";
+  }
+}
+function stop(){S.stop=true;try{speechSynthesis.cancel()}catch(e){}}
+ui.go.onclick=()=>S.running?stop():start("session");
+$("testBtn").onclick=()=>S.running?stop():start("test");
+document.addEventListener("visibilitychange",async()=>{if(S.running&&document.visibilityState==="visible"){try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}}});
+
+/* ---------- settings ---------- */
+$("setBtn").onclick=()=>{$("settings").hidden=!$("settings").hidden;fillMics();renderHist()};
+async function fillMics(){
+  try{
+    const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput");
+    const sel=$("micSel"),cur=store.get("mic","");
+    sel.innerHTML='<option value="">Automatic: prefer phone mic</option>'+ds.filter(d=>d.deviceId).map((d,i)=>`<option value="${d.deviceId}">${d.label||"Microphone "+(i+1)+" (start once to see names)"}</option>`).join("");
+    sel.value=cur;
+  }catch(e){}
+}
+$("micSel").onchange=e=>store.set("mic",e.target.value);
+$("voiceSel").onchange=e=>{store.set("voice",e.target.value);loadVoices()};
+$("nsSel").value=store.get("ns","0");
+$("nsSel").onchange=e=>store.set("ns",e.target.value);
+$("resetBtn").onclick=()=>{store.set("profile",null);store.set("history",[]);store.set("rangeDate","");$("resetMsg").hidden=false;renderHist()};
+function renderHist(){
+  const h=store.get("history",[]).slice(-8).reverse();const p=profile();
+  $("hist").innerHTML=(p?`<span class="h">Range</span><span>${nname(p.low)}–${nname(p.high)}</span><span>home ${nname(p.home)}</span>`:"")+
+   (h.length?`<span class="h">Date</span><span class="h">Avg off</span><span class="h">Minutes</span>`+h.map(x=>`<span>${x.d}</span><span>${x.err}¢</span><span>${x.min}</span>`).join(""):`<span>No sessions yet</span><span></span><span></span>`);
+}
+renderHist();
+</script>
+</body>
+</html>
