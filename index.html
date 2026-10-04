@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1214">
 <title>Road Voice Coach</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -1198,6 +1202,7 @@ $("voiceSel").onchange=e=>{store.set("voice",e.target.value);loadVoices()};
 $("nsSel").value=store.get("ns","0");$("nsSel").onchange=e=>store.set("ns",e.target.value);
 $("fbSel").value=store.get("fb","auto");$("fbSel").onchange=e=>store.set("fb",e.target.value);
 $("keySel").value=store.get("keys","1");$("keySel").onchange=e=>store.set("keys",e.target.value);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 $("resetBtn").onclick=async()=>{store.set("profile",null);store.set("history",[]);store.set("rangeDate","");D=D0();saveD();
   await idb.clear("notes");await idb.clear("clips");S.bank=new Map();$("resetMsg").hidden=false};
 </script>
