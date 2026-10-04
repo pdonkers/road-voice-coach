@@ -18,4 +18,4 @@ How it gives feedback:
 
 Steering-wheel media buttons: next skips the exercise, previous replays your last take, pause pauses.
 
-The Progress page shows charts per session and lets you replay saved takes. Everything runs in the browser; range, progress and recordings stay on the phone.
+The Progress page shows charts per session and lets you replay saved takes. After pressing Start you can switch to another app such as navigation; the session keeps running in the background. Everything runs in the browser; range, progress and recordings stay on the phone.

@@ -99,7 +99,7 @@ details th{color:var(--fg)}
 
   <div>
     <div class="stage" id="stage">Ready</div>
-    <p class="say" id="say">Press Start when you set off. The coach talks you through warm-ups, nasality work, pitch exercises and songs, plays your takes back, and keeps going until you press Stop.</p>
+    <p class="say" id="say">Press Start when you set off. The coach talks you through warm-ups, nasality work, pitch exercises and songs, plays your takes back, and keeps going until you press Stop. It keeps running while you use your navigation app.</p>
   </div>
 
   <div class="notes">
@@ -147,7 +147,7 @@ details th{color:var(--fg)}
 
   <div class="main">
     <button class="go" id="goBtn" type="button">Start</button>
-    <p class="hint" id="hint">Keep this screen open. Mount the phone where its mic can hear you.</p>
+    <p class="hint" id="hint">After pressing Start you can switch to your navigation app; the coach keeps running. Mount the phone where its mic can hear you.</p>
   </div>
 </div>
 
@@ -404,9 +404,24 @@ function setSub(s){if(S.paused)s="paused";ui.stage.textContent=s?`${stageName} Â
 class Stopped extends Error{}
 class Skip extends Error{}
 const chk=()=>{if(S.stop)throw new Stopped();if(S.skip){S.skip=false;throw new Skip()}};
-const sleep=ms=>new Promise((res,rej)=>{const t0=performance.now(),w=ms/SPEED;const iv=setInterval(()=>{
-  if(S.stop||S.skip){clearInterval(iv);try{chk();res()}catch(e){rej(e)}}
-  else if(performance.now()-t0>=w){clearInterval(iv);res()}},Math.min(40,Math.max(4,w/2)))});
+/* Browsers slow page timers to about once a second while the page is in the background.
+   So every wait is also checked each time a block of microphone audio arrives (about 90 times a second). */
+const waiters=new Set();
+function pump(){if(!waiters.size)return;const n=performance.now();for(const w of [...waiters])w(n)}
+function after(ms,fn){
+  const t0=performance.now();let done=false;
+  const off=()=>{done=true;waiters.delete(w);clearInterval(iv)};
+  const w=n=>{if(!done&&n-t0>=ms){off();fn()}};
+  const iv=setInterval(()=>w(performance.now()),Math.min(250,Math.max(4,ms/2)));
+  waiters.add(w);return off;
+}
+const sleep=ms=>new Promise((res,rej)=>{const t0=performance.now(),w=ms/SPEED;let done=false;
+  const off=()=>{done=true;waiters.delete(ck);clearInterval(iv)};
+  const ck=n=>{if(done)return;
+    if(S.stop||S.skip){off();try{chk();res()}catch(e){rej(e)}}
+    else if(n-t0>=w){off();res()}};
+  const iv=setInterval(()=>ck(performance.now()),Math.min(40,Math.max(4,w/2)));
+  waiters.add(ck)});
 async function gate(){chk();while(S.paused){await sleep(120)}}
 
 /* ---------- audio in ---------- */
@@ -423,7 +438,7 @@ async function ensureCtx(){
   if(!S.ctx){S.ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"});S.out=S.ctx.createGain();S.out.connect(S.ctx.destination)}
   await S.ctx.resume();
 }
-const WORKLET="class R extends AudioWorkletProcessor{process(i){const c=i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('rvc-rec',R)";
+const WORKLET="class R extends AudioWorkletProcessor{constructor(){super();this.a=new Float32Array(2048);this.b=new Float32Array(2048);this.n=0}process(i){const x=i[0];if(x&&x[0]){const c0=x[0],c1=x[1]||c0;if(this.n+c0.length>2048)this.n=0;this.a.set(c0,this.n);this.b.set(c1,this.n);this.n+=c0.length;if(this.n>=512){this.port.postMessage([this.a.slice(0,this.n),this.b.slice(0,this.n)]);this.n=0}}return true}}registerProcessor('rvc-in',R)";
 async function openMic(){
   await ensureCtx();
   const ns=store.get("ns","0")==="1";
@@ -438,26 +453,36 @@ async function openMic(){
   const c=S.ctx,src=c.createMediaStreamSource(stream);
   const hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=65;
   const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=1800;
-  S.an=c.createAnalyser();S.an.fftSize=4096;
-  src.connect(hp);hp.connect(lp);lp.connect(S.an);
-  S.buf=new Float32Array(S.an.fftSize);
+  src.connect(hp);hp.connect(lp);
+  const merge=c.createChannelMerger(2);src.connect(merge,0,0);lp.connect(merge,0,1);
+  S.buf=new Float32Array(4096);S.acc=0;S.samp=0;S.clock0=null;
   S.spec=c.createAnalyser();S.spec.fftSize=4096;S.spec.smoothingTimeConstant=0;src.connect(S.spec);
   S.sbuf=new Float32Array(S.spec.frequencyBinCount);
   const mute=c.createGain();mute.gain.value=0;mute.connect(c.destination);
-  const onChunk=d=>{if(S.rec)S.rec.push(d)};
+  /* channel 0 = raw mic (recording), channel 1 = filtered (pitch). Analysis runs every 40 ms of audio received, not on a timer. */
+  const hop=c.sampleRate*0.04;
+  const onChunk=d=>{
+    const raw=d[0],fl=d[1],n=raw.length;
+    if(S.rec)S.rec.push(raw);
+    if(n>=4096)S.buf.set(fl.subarray(n-4096));else{S.buf.copyWithin(0,n);S.buf.set(fl,4096-n)}
+    if(S.clock0==null)S.clock0=clock();
+    S.samp+=n;S.acc+=n;
+    if(S.acc>=hop){S.acc%=hop;tick()}
+    pump();
+  };
   try{
     if(!S.wk){await c.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:"application/javascript"})));S.wk=true}
-    const node=new AudioWorkletNode(c,"rvc-rec");node.port.onmessage=e=>onChunk(e.data);src.connect(node);node.connect(mute);S.recNode=node;
+    const node=new AudioWorkletNode(c,"rvc-in",{numberOfInputs:1,numberOfOutputs:1,channelCount:2,channelCountMode:"explicit",channelInterpretation:"discrete"});
+    node.port.onmessage=e=>onChunk(e.data);merge.connect(node);node.connect(mute);S.recNode=node;
   }catch(e){
-    const sp=c.createScriptProcessor(4096,1,1);sp.onaudioprocess=e=>onChunk(new Float32Array(e.inputBuffer.getChannelData(0)));src.connect(sp);sp.connect(mute);S.recNode=sp;
+    const sp=c.createScriptProcessor(512,2,1);sp.onaudioprocess=e=>onChunk([new Float32Array(e.inputBuffer.getChannelData(0)),new Float32Array(e.inputBuffer.getChannelData(1))]);merge.connect(sp);sp.connect(mute);S.recNode=sp;
   }
-  S.src=src;
-  S.timer=setInterval(tick,40);
+  S.src=src;S.merge=merge;
   fillMics();
 }
 function closeMic(){
-  clearInterval(S.timer);S.timer=null;S.frames=null;S.rec=null;S.specMode=null;S.nAcc=null;
-  try{S.src&&S.src.disconnect();S.recNode&&S.recNode.disconnect()}catch(e){}
+  S.frames=null;S.rec=null;S.specMode=null;S.nAcc=null;S.clock0=null;
+  try{S.recNode&&(S.recNode.port?S.recNode.port.onmessage=null:S.recNode.onaudioprocess=null);S.src&&S.src.disconnect();S.merge&&S.merge.disconnect();S.recNode&&S.recNode.disconnect()}catch(e){}
   if(S.stream)S.stream.getTracks().forEach(t=>t.stop());S.stream=null;
 }
 const recStart=()=>{S.rec=[]};
@@ -479,11 +504,10 @@ function nasalIndex(db,f0){
   return (p0>-900&&a1>-900)?a1-p0:null;
 }
 function tick(){
-  S.an.getFloatTimeDomainData(S.buf);
   let r=0;for(let i=0;i<S.buf.length;i++)r+=S.buf[i]*S.buf[i];r=Math.sqrt(r/S.buf.length);
   let m=null;
   if(r>Math.max(0.002,S.noise*2.5)){const p=yin(S.buf,S.ctx.sampleRate);if(p&&p.c>0.8&&p.f>65&&p.f<1100)m=ftom(p.f)}
-  const f={t:clock(),m,r};
+  const f={t:S.clock0+S.samp/S.ctx.sampleRate*1000*SPEED,m,r};
   if(S.nAcc||S.specMode){
     S.spec.getFloatFrequencyData(S.sbuf);
     if(S.nAcc){const a=S.nAcc.sum;for(let i=0;i<a.length;i++)a[i]+=Math.pow(10,S.sbuf[i]/10);S.nAcc.n++}
@@ -612,10 +636,11 @@ async function speak(text,caption=true){
   if(caption)ui.say.textContent=text;
   return new Promise((res,rej)=>{
     let done=false;
-    const fin=()=>{if(done)return;done=true;clearInterval(iv);clearTimeout(to);try{chk()}catch(e){return rej(e)}setTimeout(res,(150+S.lat)/SPEED)};
-    const iv=setInterval(()=>{if(S.stop||S.skip){try{speechSynthesis.cancel()}catch(e){}fin()}},100);
-    const to=setTimeout(fin,(2500+text.length*95)/SPEED);
-    if(!("speechSynthesis" in window)){clearTimeout(to);setTimeout(fin,(1200+text.length*60)/SPEED);return}
+    const fin=()=>{if(done)return;done=true;waiters.delete(poll);clearInterval(iv);offTo();try{chk()}catch(e){return rej(e)}after((150+S.lat)/SPEED,res)};
+    const poll=()=>{if(S.stop||S.skip){try{speechSynthesis.cancel()}catch(e){}fin()}};
+    const iv=setInterval(poll,100);waiters.add(poll);
+    let offTo=after((2500+text.length*95)/SPEED,fin);
+    if(!("speechSynthesis" in window)){offTo();offTo=after((1200+text.length*60)/SPEED,fin);return}
     const u=utter(text);u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);
   });
 }
@@ -1043,7 +1068,7 @@ async function start(mode){
   if(S.running)return;
   S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;
   ui.go.textContent="Stop";ui.go.classList.add("stop");$("progress").hidden=true;
-  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Press Stop when you arrive. Progress is saved.";
+  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Come back here and press Stop when you arrive.";
   try{
     if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
     try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}
@@ -1059,7 +1084,7 @@ async function start(mode){
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="â€“";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. Open Progress to see your charts and hear your takes.";}
-    ui.hint.textContent="Keep this screen open. Mount the phone where its mic can hear you.";
+    ui.hint.textContent="After pressing Start you can switch to your navigation app; the coach keeps running. Mount the phone where its mic can hear you.";
   }
 }
 function stop(){S.stop=true;try{speechSynthesis.cancel()}catch(e){}}
@@ -1078,7 +1103,6 @@ function doPause(on){
   setSub(on?"paused":"");
 }
 function mediaOn(){
-  if(store.get("keys","1")!=="1"||!("mediaSession" in navigator))return;
   try{
     if(!S.silent){
       const sr=8000,n=sr*10,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
@@ -1088,9 +1112,11 @@ function mediaOn(){
       S.silent=new Audio(URL.createObjectURL(new Blob([b],{type:"audio/wav"})));S.silent.loop=true;
     }
     S.silent.play().catch(()=>{});
+    if(!("mediaSession" in navigator))return;
     const ms=navigator.mediaSession,set=(a,h)=>{try{ms.setActionHandler(a,h)}catch(e){}};
     try{ms.metadata=new MediaMetadata({title:"Singing session",artist:"Road Voice Coach"})}catch(e){}
-    set("nexttrack",doSkip);set("previoustrack",doReplay);set("pause",()=>doPause(true));set("play",()=>doPause(false));
+    const on=store.get("keys","1")==="1";
+    set("nexttrack",on?doSkip:null);set("previoustrack",on?doReplay:null);set("pause",on?()=>doPause(true):()=>{});set("play",on?()=>doPause(false):()=>{});
     ms.playbackState="playing";
   }catch(e){}
 }
