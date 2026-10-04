@@ -30,7 +30,10 @@ body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 var(--display)
 header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 h1{font-size:1.25rem;font-weight:700;margin:0;letter-spacing:.01em}
 h1 span{color:var(--amber)}
-.links{display:flex;gap:14px}
+.links{display:flex;gap:14px;flex-wrap:wrap}
+.links button[aria-current="page"]{color:var(--fg);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--amber)}
+.wrap.panel-open .home{display:none}
+.back{align-self:flex-start}
 .links button{background:none;border:0;color:var(--dim);font:500 .85rem var(--mono);padding:6px 0;cursor:pointer}
 .links button:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 .stage{font:500 .78rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--amber)}
@@ -103,37 +106,39 @@ details th{color:var(--fg)}
 <body>
 <div class="wrap">
   <header>
-    <h1>Road Voice <span>Coach</span></h1>
-    <div class="links">
+    <h1 id="title" style="cursor:pointer">Road Voice <span>Coach</span></h1>
+    <nav class="links" aria-label="Sections">
+      <button id="homeBtn" type="button" aria-current="page">Home</button>
       <button id="testBtn" type="button">Mic test</button>
       <button id="progBtn" type="button">Progress</button>
       <button id="guideBtn" type="button">Guide</button>
       <button id="setBtn" type="button">Settings</button>
-    </div>
+    </nav>
   </header>
 
-  <div>
+  <div class="home">
     <div class="stage" id="stage">Ready</div>
     <p class="say" id="say">Press Start when you set off. The coach talks you through warm-ups, nasality work, pitch exercises and songs, plays your takes back, and keeps going until you press Stop. It keeps running while you use your navigation app.</p>
   </div>
 
-  <div class="notes">
+  <div class="notes home">
     <div class="note"><small>Target</small><b id="target">–</b></div>
     <div class="note you"><small>You</small><b id="you">–</b></div>
   </div>
-  <div>
+  <div class="home">
     <div class="tuner" aria-hidden="true"><div class="zone"></div><div class="mid"></div><div class="needle" id="needle"></div></div>
     <div class="scale"><span>−50¢ flat</span><span>in tune</span><span>sharp +50¢</span></div>
   </div>
-  <div class="level" aria-hidden="true"><i id="lvl"></i></div>
+  <div class="level home" aria-hidden="true"><i id="lvl"></i></div>
 
-  <div class="row ctl" id="ctl" hidden>
+  <div class="row ctl home" id="ctl" hidden>
     <button class="btn" id="replayBtn" type="button">Replay take</button>
     <button class="btn" id="skipBtn" type="button">Skip</button>
     <button class="btn" id="pauseBtn" type="button">Pause</button>
   </div>
 
   <section class="panel" id="progress" hidden>
+    <button class="btn back" type="button">← Back to home</button>
     <h2>Progress</h2>
     <div id="charts" style="display:flex;flex-direction:column;gap:18px"></div>
     <div>
@@ -143,6 +148,7 @@ details th{color:var(--fg)}
   </section>
 
   <section class="panel" id="guide" hidden>
+    <button class="btn back" type="button">← Back to home</button>
     <h2>Examples</h2>
     <p class="hint">Tap to hear what an exercise should sound like. The sounds are synthesized, so they show the shape of the exercise, not a real voice.</p>
     <div class="clips" id="examples"></div>
@@ -152,6 +158,7 @@ details th{color:var(--fg)}
   </section>
 
   <section class="panel" id="settings" hidden>
+    <button class="btn back" type="button">← Back to home</button>
     <h2>Settings</h2>
     <label for="micSel">Microphone (pick the phone's own mic when the car is connected over Bluetooth)
       <select id="micSel"><option value="">Automatic: prefer phone mic</option></select></label>
@@ -169,7 +176,7 @@ details th{color:var(--fg)}
     <p class="hint" id="resetMsg" hidden>Everything cleared. The next session starts from scratch.</p>
   </section>
 
-  <div class="main">
+  <div class="main home">
     <button class="go" id="goBtn" type="button">Start</button>
     <div class="row" id="laterRow">
       <button class="btn" id="laterBtn" type="button" style="flex:1;padding:16px 14px;background:var(--panel)">Start in 10 min</button>
@@ -1314,7 +1321,7 @@ async function countdown(min){
 async function start(mode,delayMin=0){
   if(S.running)return;
   S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;
-  ui.go.textContent="Stop";ui.go.classList.add("stop");panels.forEach(x=>$(x).hidden=true);$("laterRow").hidden=true;
+  ui.go.textContent=mode==="test"?"End mic test":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
   ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Come back here and press Stop when you arrive.";
   try{
     if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
@@ -1330,7 +1337,7 @@ async function start(mode,delayMin=0){
   }finally{
     if(mode!=="test")saveSession();
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
-    S.running=false;S.paused=false;$("laterRow").hidden=false;ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
+    S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. Progress has your charts and takes; Guide has the cues you heard."+diagText();}
     ui.hint.textContent="After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.";
   }
@@ -1349,7 +1356,7 @@ delaySel.value=String(store.get("delay",10));
 const setLater=()=>{laterBtn.textContent=`Start in ${delaySel.value} min`};setLater();
 delaySel.onchange=()=>{store.set("delay",+delaySel.value);setLater()};
 laterBtn.onclick=()=>{if(!S.running)start("session",+delaySel.value)};
-$("testBtn").onclick=()=>S.running?stop():start("test");
+$("testBtn").onclick=()=>{if(S.running){if(S.mode==="test")stop();return}showView(null);start("test")};
 document.addEventListener("visibilitychange",async()=>{if(S.running&&document.visibilityState==="visible"){try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}}});
 
 /* ---------- hands-free controls: steering-wheel media buttons ---------- */
@@ -1442,7 +1449,13 @@ async function renderProgress(){
     b.onclick=async()=>{if(S.running)return;await ensureCtx();playBuf(c,S.ctx.currentTime+0.05)};cb.append(b)}
 }
 const panels=["progress","guide","settings"];
-function togglePanel(id){const el=$(id),show=el.hidden;panels.forEach(x=>$(x).hidden=true);el.hidden=!show;return show}
+const navOf={progress:"progBtn",guide:"guideBtn",settings:"setBtn"};
+function markNav(){const open=panels.find(x=>!$(x).hidden),cur=open?navOf[open]:(S.running&&S.mode==="test"?"testBtn":"homeBtn");
+  document.querySelectorAll(".links button").forEach(b=>b.id===cur?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"))}
+function showView(id){panels.forEach(x=>$(x).hidden=x!==id);document.querySelector(".wrap").classList.toggle("panel-open",!!id);markNav();window.scrollTo(0,0)}
+function togglePanel(id){const show=$(id).hidden;showView(show?id:null);return show}
+function goHome(){if(S.running&&S.mode==="test")stop();showView(null)}
+$("homeBtn").onclick=goHome;$("title").onclick=goHome;document.querySelectorAll(".back").forEach(b=>b.onclick=goHome);
 $("progBtn").onclick=()=>{if(togglePanel("progress"))renderProgress()};
 
 /* ---------- guide: examples and cues ---------- */
