@@ -231,8 +231,8 @@ function segments(frames,minFrames=5){
   const segs=[];let cur=null;
   const close=()=>{if(cur&&cur.ms.length>=minFrames)segs.push(cur);cur=null};
   for(const f of frames){
-    if(f.m==null){if(cur&&f.t-cur.end>160)close();continue}
-    if(cur&&Math.abs(f.m-cur.last)<0.6&&f.t-cur.end<=160){cur.ms.push(f.m);cur.rs.push(f.r);cur.end=f.t;cur.last=f.m}
+    if(f.m==null){if(cur&&f.t-cur.end>260)close();continue}
+    if(cur&&Math.abs(f.m-cur.last)<0.6&&f.t-cur.end<=260){cur.ms.push(f.m);cur.rs.push(f.r);cur.end=f.t;cur.last=f.m}
     else{close();cur={start:f.t,end:f.t,ms:[f.m],rs:[f.r],last:f.m}}
   }
   close();
@@ -241,7 +241,7 @@ function segments(frames,minFrames=5){
     const n=s.ms.length,a=Math.floor(n*0.2),core=s.ms.slice(a,Math.max(a+1,Math.ceil(n*0.9)));
     const p=median(core), sd=Math.sqrt(mean(core.map(x=>(x-p)**2)))*100;
     const prev=out[out.length-1];
-    if(prev&&Math.abs(prev.p-p)<0.4&&s.start-prev.end<300){prev.ms.push(...s.ms);prev.rs.push(...s.rs);prev.end=s.end;prev.p=median(prev.ms);continue}
+    if(prev&&Math.abs(prev.p-p)<0.4&&s.start-prev.end<400){prev.ms.push(...s.ms);prev.rs.push(...s.rs);prev.end=s.end;prev.p=median(prev.ms);continue}
     const k=Math.max(2,Math.floor(n*0.3));
     out.push({start:s.start,end:s.end,ms:s.ms,rs:s.rs,p,sd,on:median(s.ms.slice(0,3)),first:median(s.ms.slice(0,k)),last:median(s.ms.slice(-k))});
   }
@@ -398,10 +398,18 @@ function analyseSeq(frames,targetsRaw,o={},S0={}){
   return {heard:true,avg,bias,scoops,level,success:avg<40&&ok.length>=Math.ceil(T.length*0.8),retry:avg>=70,
     text:parts.join(" "),single:T.length===1?r.map[0]:null};
 }
+/* a held note: every frame near the main pitch, from the first to the last, so gaps where the pitch couldn't be read don't shorten it */
+function holdSeg(frames){
+  const v=frames.filter(f=>f.m!=null);if(v.length<6)return null;
+  const med=median(v.map(f=>f.m)),k=v.filter(f=>Math.abs(f.m-med)<1.2);
+  if(k.length<6)return null;
+  const ms=k.map(f=>f.m),rs=k.map(f=>f.r),n=ms.length,a=Math.floor(n*0.15),core=ms.slice(a,Math.max(a+1,Math.ceil(n*0.95)));
+  const p=median(core),sd=Math.sqrt(mean(core.map(x=>(x-p)**2)))*100,q=Math.max(2,Math.floor(n*0.3));
+  return {start:k[0].t,end:k[n-1].t,ms,rs,p,sd,on:median(ms.slice(0,3)),first:median(ms.slice(0,q)),last:median(ms.slice(-q))};
+}
 function analyseHold(frames,target,o={}){
-  const segs=segments(frames),level=levelOf(frames);
-  if(!segs.length)return {heard:false,success:false,retry:true,level,text:"I didn't hear a note there."};
-  const s=segs.reduce((a,b)=>(b.end-b.start)>(a.end-a.start)?b:a);
+  const s=holdSeg(frames),level=levelOf(frames);
+  if(!s)return {heard:false,success:false,retry:true,level,text:"I didn't hear a note there."};
   let e=(s.p-target)*100;e-=Math.round(e/1200)*1200;
   const dur=(s.end-s.start)/1000,drift=(s.last-s.first)*100,n=s.ms.length;
   const vib=vibrato(s.ms.slice(Math.floor(n*0.15),Math.ceil(n*0.95)));
@@ -445,8 +453,9 @@ const idb={db:null,
   clear(st){return this.run(st,"readwrite",s=>s.clear()).catch(()=>null)}};
 
 /* ---------- state ---------- */
+const NOISE_MIN=0.0003;
 const S={tip:{},done:0,diag:{zero:0,stall:0,tts:0},running:false,stop:false,skip:false,canSkip:false,paused:false,replayReq:false,mode:null,ctx:null,out:null,an:null,spec:null,
-  stream:null,buf:null,sbuf:null,timer:null,noise:0.004,frames:null,specMode:null,nAcc:null,nspec:null,hbNoise:0,rec:null,lat:250,
+  stream:null,buf:null,sbuf:null,timer:null,noise:0.001,frames:null,specMode:null,nAcc:null,nspec:null,hbNoise:0,rec:null,lat:250,
   wake:null,voice:null,misses:0,scores:[],biases:[],round:0,sessionStart:0,bank:new Map(),lastTake:null,prevTake:null,blk:null,
   base:0,loud:0,loudAt:-1e9,repN:0,fbEvery:1,nas:null,nasScores:[],ltI:0,silent:null};
 const $=id=>document.getElementById(id);
@@ -506,9 +515,10 @@ async function openMic(){
   }
   S.stream=stream;
   const c=S.ctx,src=c.createMediaStreamSource(stream);
-  const hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=65;
-  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=1800;
-  src.connect(hp);hp.connect(lp);
+  /* Road and engine noise is strongest below about 300 Hz and far louder there than a voice.
+     A steep high-pass removes it; the pitch is still found from the remaining harmonics. */
+  let hp=src;for(let i=0;i<4;i++){const b=c.createBiquadFilter();b.type="highpass";b.frequency.value=340;b.Q.value=0.707;hp.connect(b);hp=b}
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=3200;hp.connect(lp);
   const merge=c.createChannelMerger(2);src.connect(merge,0,0);lp.connect(merge,0,1);
   S.buf=new Float32Array(4096);S.acc=0;S.samp=0;S.clock0=null;
   S.spec=c.createAnalyser();S.spec.fftSize=4096;S.spec.smoothingTimeConstant=0;src.connect(S.spec);
@@ -575,7 +585,7 @@ function nasalIndex(db,f0){
 function tick(){
   let r=0;for(let i=0;i<S.buf.length;i++)r+=S.buf[i]*S.buf[i];r=Math.sqrt(r/S.buf.length);
   let m=null;
-  if(r>Math.max(0.002,S.noise*2.5)){const p=yin(S.buf,S.ctx.sampleRate);if(p&&p.c>0.8&&p.f>65&&p.f<1100)m=ftom(p.f)}
+  if(r>Math.max(0.0006,S.noise*1.5)){const p=yin(S.buf,S.ctx.sampleRate);if(p&&p.c>0.8&&p.f>65&&p.f<1100)m=ftom(p.f)}
   const f={t:S.clock0+S.samp/S.ctx.sampleRate*1000*SPEED,m,r};
   if(S.nAcc||S.specMode){
     S.spec.getFloatFrequencyData(S.sbuf);
@@ -584,7 +594,7 @@ function tick(){
     if(S.specMode==="hiss")f.hb=bandPower(S.sbuf,4000,9000);
   }
   if(S.frames)S.frames.push(f);
-  ui.lvl.style.width=Math.min(100,r*900)+"%";
+  ui.lvl.style.width=Math.min(100,r*2500)+"%";
   if(m!=null){
     ui.you.textContent=nname(m);
     const ref=targetMidi!=null?targetMidi:Math.round(m);
@@ -598,7 +608,7 @@ async function calibrate(ms){
   S.frames=[];S.nAcc={sum:new Float64Array(S.sbuf.length),n:0};
   await sleep(ms);
   const rs=S.frames.map(f=>f.r);S.frames=null;const acc=S.nAcc;S.nAcc=null;
-  if(rs.length)S.noise=Math.max(0.0015,pct(rs,0.8));
+  if(rs.length)S.noise=Math.max(NOISE_MIN,pct(rs,0.8));
   if(acc.n){S.nspec=acc.sum.map(x=>x/acc.n);const bw=S.ctx.sampleRate/S.spec.fftSize;let s=0,n=0;for(let i=Math.round(4000/bw);i<=Math.min(S.nspec.length-1,Math.round(9000/bw));i++){s+=S.nspec[i];n++}S.hbNoise=n?s/n:0}
 }
 /* measure how long the speakers take to reach the mic (Bluetooth adds delay), so the coach never hears itself */
@@ -616,18 +626,28 @@ async function latencyCheck(){
   }catch(e){if(e instanceof Stopped)throw e}
 }
 /* listen until the singer finishes; records the take */
-async function listen({max=8000,wait=6000,endSil=1200,spec=null,active=null,count=true,minRun=3}={}){
+async function listen({max=8000,wait=6000,endSil=1500,spec=null,active=null,count=true,minRun=3}={}){
   await gate();
   const act=active||(f=>f.m!=null);
+  /* Once singing has started, sound clearly above the noise floor also counts as "still singing",
+     so a moment where the pitch can't be read over road noise doesn't end the take. */
+  const alive=active||(f=>f.m!=null||f.r>S.noise*2.2);
+  /* Everything is timed on the audio clock the frames carry. Comparing frame times with the wall clock
+     ended takes early whenever audio delivery had fallen behind (after any glitch or pause). */
+  const at=()=>S.clock0==null?clock():S.clock0+S.samp/S.ctx.sampleRate*1000*SPEED;
   S.specMode=spec;S.frames=[];recStart();
-  const t0=clock(),tReal=performance.now();let first=0,last=0,idx=0,run=0;
+  const t0=at(),w0=clock();let first=0,last=0,idx=0,run=0;
   try{
     while(true){
       await sleep(50*SPEED);
       const fr=S.frames;
-      for(;idx<fr.length;idx++){if(act(fr[idx])){run++;if(run>=minRun){last=fr[idx].t-t0;if(!first)first=last}}else run=0}
-      const now=clock()-t0;
-      if(now>max)break;
+      for(;idx<fr.length;idx++){
+        const f=fr[idx];
+        if(act(f)){run++;if(run>=minRun){if(!first)first=f.t-t0;last=f.t-t0}}else run=0;
+        if(first&&alive(f))last=Math.max(last,f.t-t0);
+      }
+      const now=at()-t0;
+      if(now>max||clock()-w0>max+8000)break;
       if(!first&&now>wait)break;
       if(first&&now-last>endSil&&now-first>600)break;
     }
@@ -635,7 +655,7 @@ async function listen({max=8000,wait=6000,endSil=1200,spec=null,active=null,coun
   const f=S.frames;S.frames=null;
   const pcm=recStop();
   const on=f.filter(act);
-  if(!spec||spec==="nasal"){const q=f.filter(x=>x.m==null&&(!first||x.t-t0<first-250)).map(x=>x.r);if(q.length>=8)S.noise=Math.max(0.0015,0.6*S.noise+0.4*pct(q,0.8))}
+  if(!spec||spec==="nasal"){const q=f.filter(x=>x.m==null&&(!first||x.t-t0<first-250)).map(x=>x.r);if(q.length>=8)S.noise=Math.max(NOISE_MIN,0.6*S.noise+0.4*pct(q,0.8))}
   S.lastTake=null;
   if(on.length>=6){
     const sr=S.ctx.sampleRate,a=Math.max(0,Math.floor(((on[0].t-t0)/SPEED/1000-0.25)*sr)),b=Math.min(pcm.length,Math.ceil(((on[on.length-1].t-t0)/SPEED/1000+0.3)*sr));
@@ -822,7 +842,7 @@ function genIv(p){
 }
 function genLt(p,i){
   const L=lvl("lt");
-  return {t:[p.home+[0,2,4,-2,5][i%5]],o:{dur:2.2,hold:true,kind:"lt",need:[3,5,7][L-1],maxListen:[9000,11000,13000][L-1]}};
+  return {t:[p.home+[0,2,4,-2,5][i%5]],o:{dur:2.2,hold:true,kind:"lt",need:[3,5,7][L-1],maxListen:[12000,14000,16000][L-1]}};
 }
 async function findRange(){
   setStage("Finding your voice");
@@ -883,7 +903,7 @@ async function rep(targets,o={}){
     if(o.modelFn)await o.modelFn();else await model(targets,o);
     setSub("your turn");
     const total=targets.reduce((s,_,i)=>s+durOf(o.durs||o.dur||0.75,i)+(o.gap||0.06),0);
-    const f=await listen({max:o.maxListen||(total*1300+4500),wait:5000,endSil:o.endSil||1200});
+    const f=await listen({max:o.maxListen||(total*1800+6000),wait:6000,endSil:o.endSil||1500});
     setSub("");
     const take=S.lastTake;
     if(S.misses>=3){await waitForSinger();if(attempt===0)continue;return null}
@@ -1011,12 +1031,12 @@ async function warmup(p){
   await sleep(30000);
   await speak("Now hum these five notes.");
   for(const r of [p.home-2,p.home])await rep([0,2,4,2,0].map(x=>r+x),{dur:0.6,quiet:true,noRetry:true,own:false,vz:"hum"});
-  const a=await rep([p.home],{dur:2.2,hold:true,intro:"Now sing ah on this note and hold it, at an easy speaking volume.",maxListen:9000,always:true,need:2.5});
+  const a=await rep([p.home],{dur:2.2,hold:true,intro:"Now sing ah on this note and hold it, at an easy speaking volume.",maxListen:12000,always:true,need:2.5});
   if(a&&a.heard)S.base=a.level;
 }
 async function ahTake(m){
   await play([m],1.2);setSub("your turn");
-  const f=await listen({max:7000,wait:5000,spec:"nasal",count:false});setSub("");
+  const f=await listen({max:10000,wait:6000,spec:"nasal",count:false});setSub("");
   const v=f.filter(x=>x.m!=null&&x.np!=null).map(x=>x.np),c=v.slice(Math.floor(v.length*0.2),Math.ceil(v.length*0.9));
   return {take:S.lastTake,np:c.length>=8?median(c):null};
 }
@@ -1084,14 +1104,14 @@ const DIC=[
 async function vowels(p){
   const v=VOW[D.vi%VOW.length];D.vi++;
   await speak(`Vowel work, on ${v.say}. ${v.tip} First one held note, then three notes up, then three notes down.`);
-  await rep([p.home],{dur:1.5,hold:true,vowel:v.k,own:false,need:2.5,maxListen:8000});
+  await rep([p.home],{dur:1.5,hold:true,vowel:v.k,own:false,need:2.5,maxListen:11000});
   await rep([0,2,4].map(x=>p.home-2+x),{dur:0.8,vowel:v.k,own:false});
   await rep([4,2,0].map(x=>p.home-2+x),{dur:0.8,vowel:v.k,own:false});
   const st=D.vow[v.k];
   if(st&&st.n>=6){const b=st.sum/st.n;if(Math.abs(b)>=15)await speak(`Over time, on this vowel you tend to sing about ${Math.round(Math.abs(b))} cents ${dir(b)}.`)}
   const d=DIC[D.dic%DIC.length];D.dic++;
   await speak(`Diction. Sing the word ${d[0]} on this note, for about three seconds. ${d[1]}`);
-  await rep([p.home],{dur:1.5,hold:true,quiet:true,replay:"always",replayTarget:false,noRetry:true,maxListen:8000,own:false,words:true});
+  await rep([p.home],{dur:1.5,hold:true,quiet:true,replay:"always",replayTarget:false,noRetry:true,maxListen:11000,own:false,words:true});
 }
 async function breath(p){
   const first=!S.breathSaid;S.breathSaid=true;
@@ -1106,7 +1126,7 @@ async function breath(p){
     if(sec>prev)D.best.hiss=sec}
   else await speak("I couldn't pick out the hiss over the road noise.");
   await speak("Now one long note on ah. Hold it steady for as long as is comfortable.");
-  await rep([p.home],{dur:1.5,hold:true,maxListen:32000,endSil:900,always:true,noRetry:true,need:4,longest:true,own:false});
+  await rep([p.home],{dur:1.5,hold:true,maxListen:35000,endSil:1400,always:true,noRetry:true,need:4,longest:true,own:false});
   for(let i=0;i<2;i++){const g=genLt(p,S.ltI++);await rep(g.t,g.o)}
 }
 async function rhythm(){
@@ -1114,14 +1134,14 @@ async function rhythm(){
   for(let k=0;k<2;k++){
     const beat=60/pick([76,88,100]);
     await clicks(4,beat);setSub("your turn");
-    await listen({max:(8*beat+3)*1000,wait:5000,endSil:Math.max(1400,beat*2200),count:false,minRun:1,active:x=>x.r>Math.max(0.004,S.noise*3)});setSub("");
+    await listen({max:(8*beat+3)*1000,wait:5000,endSil:Math.max(1400,beat*2200),count:false,minRun:1,active:x=>x.r>Math.max(0.0012,S.noise*2.5)});setSub("");
     const tk=S.lastTake;
     await speak(rhythmText(tk?onsetsFromPcm(tk.pcm,tk.sr):[],beat).text);
   }
 }
 async function swell(p){
   await speak("Dynamics. On this note, start soft, grow to full by the middle, then fade back to soft. Keep the pitch still. Like this.");
-  for(const m of [p.home,p.home+2])await rep([m],{dur:4,hold:true,swell:true,always:true,noRetry:true,maxListen:11000,noGuard:true,need:3,own:false,modelFn:()=>DEMO.swell(m)});
+  for(const m of [p.home,p.home+2])await rep([m],{dur:4,hold:true,swell:true,always:true,noRetry:true,maxListen:14000,noGuard:true,need:3,own:false,modelFn:()=>DEMO.swell(m)});
 }
 async function starts(p){
   await speak("Clean starts. Sing each note short and separate, right on pitch from the first instant. No sliding up.");
@@ -1131,7 +1151,7 @@ async function starts(p){
 const skills=p=>[rhythm,swell,starts][D.sk++%3](p);
 async function plainTake(m,dur=1.2){
   await play([m],dur);setSub("your turn");
-  await listen({max:7000,wait:5000,count:false});setSub("");
+  await listen({max:10000,wait:6000,count:false});setSub("");
   return S.lastTake;
 }
 async function onset(p){
@@ -1165,7 +1185,7 @@ async function clearTone(p){
   const tip=tipFor("tone"),m=p.home;
   await speak("Clear tone. First the contrast. Sing this note very breathy, half whisper, like this.");
   await DEMO.breathy(m);setSub("your turn");
-  await listen({max:7000,wait:5000,count:false});setSub("");
+  await listen({max:10000,wait:6000,count:false});setSub("");
   const B=S.lastTake;
   await speak(`Now clear, with no air leaking. Today's cue: ${tip.say}`);
   const C=await plainTake(m);
