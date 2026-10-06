@@ -22,6 +22,7 @@ The app reads `window.__speed` to run its waits faster, and the scripts replace 
 | `length.js` | Session length and focus: the technique rotation for each setting, and a timed session ending by itself with a cool-down | `node tests/length.js 5 8` (minutes, speed) |
 | `timing.js` | Real minutes per block, with speech stubbed at about real speaking speed; the source of the block estimates | `node tests/timing.js 6` |
 | `backup.js` | A backup file restores settings, progress, takes and model notes onto a cleared browser; a wrong file is refused | `node tests/backup.js` |
+| `progress.js` | Practice days, streak and weekly goal (text, week squares, spoken lines, a day recorded after 3 minutes), the 11 Guide lesson links, first clips kept through pruning, the then-and-now buttons and the free-singing then-and-now line | `node tests/progress.js` (about 1 minute) |
 | `later.js` | Delayed start: countdown, Skip, and the session starting after the wait | `node tests/later.js` |
 | `navtest.js` | Home link, Back buttons and the separate views | `node tests/navtest.js` |
 | `own.js` | The own-voice note bank: an in-tune note is saved, reloaded and reused as the model note | `node tests/own.js` |

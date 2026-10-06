@@ -4,6 +4,23 @@ Companion to [research.md](research.md) (research and build notes). Newest first
 
 The assessment and prioritized backlog are in [BACKLOG.md](../BACKLOG.md). The working copy is the Claude Doc "Road Voice Coach: assessment and backlog" (https://claude.ai/code/artifact/48816687-019b-4b0f-85eb-14495b2ef7ce, private to Paul). When a backlog item is built, update the status in the doc and re-export it to `BACKLOG.md`, replacing the byline line.
 
+## 7 Oct 2026 (version label 2026-10-07.1): streak and weekly goal, old take against new take, lesson links
+
+Three backlog items.
+
+Changes:
+- Practice days: a day counts when a session ran for 3 minutes or more, recorded when the session ends (`rvc_days`, sorted unique `YYYY-MM-DD`, last 120), separately from the session history, which still needs 4 pitch scores. Mic tests do not count. Dates use the same function as everywhere else in the app (`today()`, UTC), so the day and the week change at the same moment as the rest of the data; the week is Monday to Sunday on those dates.
+- Settings, "Weekly goal": 3 to 7 days a week, default 4 (`rvc_goal`).
+- Spoken: after the first greeting line, when the streak is 2 days or more counting today, "Day three in a row." (words up to ten, digits after). The summary at the end of round 1 adds "That's 2 of your 4 practice days this week." or, once the goal is met, "That's your weekly goal of 4 days reached." Both count today as practised, because the session is running.
+- Progress page, top: "This week: 2 of 4 days. Streak: 3 days." and the last 8 weeks as small squares (one column of 7 per week, Monday at the top, amber when practised, most recent week last), each week with an accessible label giving its count. The streak runs to today, or to yesterday when today has no session yet.
+- Old take against new take: the first saved take of each label (free singing, each block's best take, song names) is also stored as a marked copy that is never pruned (`first: true` in the `clips` store); the newest 20 other clips are kept as before and at most 12 first clips (past that the first clip of the label used longest ago goes, so free singing stays). A clip saved before this update becomes the first for its label, so existing takes are not lost. First clips are left out of "Saved takes" and are included in the backup file.
+- Progress page, "Then and now": for each label whose first take is at least 7 days older than its newest one, the label with "▶ First (MM-DD)", "▶ Latest (MM-DD)" and "▶ Both" (first, a 0.7 s gap, then latest).
+- In a session, after the free-singing clip is saved: if the first free-singing take is 14 or more days old and it was not done in the last 14 days (`D.thenNow`), the coach says "Here's your free singing from your first week, and then today's." and plays the first (12 s at most) and then today's. This replaces the plain "Here are a few seconds of it" playback that time.
+- Guide, "Lessons to watch at home" after the cues: one YouTube lesson per topic (nasality, lip trills, pitch, breath, clean onsets, registers, clear tone, smooth line, loose jaw and tongue, posture, vowels), each a link that opens in a new tab, with the video title and channel. For home, never while driving.
+- New test `tests/progress.js`.
+
+Tested in headless Chromium only: streak and week text and squares from seeded days (including a gap and the up-to-yesterday case), the goal setting, 11 lesson links all to https://www.youtube.com/, `addClip` keeping first clips through pruning (20 normal, 12 first, the original free-singing take kept), the then-and-now buttons and the 0.7 s gap, the free-singing then-and-now line (played once, not again until 14 days later, not when the first take is under 14 days old), the two spoken summary lines, the streak line at the start of a session, and a day recorded only after 3 simulated minutes; `backup.js` and `blocks.js` pass. Not tested on the phone: the spoken lines and the then-and-now playback through the car speakers, the layout on the phone's own screen, and whether the YouTube links open in the phone's browser or the YouTube app. I did not watch the videos; titles and channels are as given.
+
 ## 6 Oct 2026 (version label 2026-10-06.4): session length, focus, backup
 
 Changes:

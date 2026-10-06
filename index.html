@@ -97,6 +97,17 @@ details th{color:var(--fg)}
 .clips button{display:flex;justify-content:space-between;gap:10px;text-align:left;width:100%}
 .clips small{color:var(--dim);font:.75rem var(--mono);white-space:nowrap}
 .ex{display:flex;flex-direction:column;gap:4px}
+.lessons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.lessons a{color:var(--amber);font-weight:500;text-underline-offset:3px}
+.lessons small{display:block;color:var(--dim);font-size:.8rem}
+.weeks{display:flex;gap:10px;flex-wrap:wrap}
+.weeks div{display:flex;flex-direction:column;gap:4px}
+.weeks i{display:block;width:16px;height:16px;border:1px solid var(--dim);border-radius:3px}
+.weeks i.on{background:var(--amber);border-color:var(--amber)}
+.weeks i.fut{opacity:.35}
+.tn{display:flex;flex-direction:column;gap:6px}
+.tn .row{flex-wrap:wrap}
+.tn .btn{flex:1 1 0;white-space:nowrap;padding:10px 8px}
 .ex p{margin:0;font-size:.85rem;color:var(--dim)}
 .topic h3{margin:0 0 6px;font:500 .78rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
 .cue{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line)}
@@ -147,6 +158,11 @@ details th{color:var(--fg)}
     <button class="btn back" type="button">← Back to home</button>
     <h2>Progress</h2>
     <div id="charts" style="display:flex;flex-direction:column;gap:18px"></div>
+    <div id="thenNow" hidden>
+      <h2 style="margin-bottom:8px">Then and now</h2>
+      <p class="hint" style="margin-bottom:8px">Your first saved take of each kind, kept for good, against your latest one.</p>
+      <div style="display:flex;flex-direction:column;gap:12px" id="thenNowList"></div>
+    </div>
     <div>
       <h2 style="margin-bottom:8px">Saved takes</h2>
       <div class="clips" id="clips"></div>
@@ -164,6 +180,9 @@ details th{color:var(--fg)}
     <h2>Cues</h2>
     <p class="hint">Each session uses one cue per topic and rotates through them. Star the ones that work for you and the coach will use them more often.</p>
     <div id="cues" style="display:flex;flex-direction:column;gap:16px"></div>
+    <h2>Lessons to watch at home</h2>
+    <p class="hint">One video lesson per topic, from voice teachers on YouTube. For home, never while driving.</p>
+    <ul class="lessons" id="lessons"></ul>
   </section>
 
   <section class="panel" id="settings" hidden>
@@ -177,6 +196,8 @@ details th{color:var(--fg)}
       <select id="nsSel"><option value="0">Off (most accurate pitch)</option><option value="1">On (try if it hears engine noise as singing)</option></select></label>
     <label for="lenSel">Session length
       <select id="lenSel"><option value="0">Until I press Stop</option><option value="5">About 5 minutes</option><option value="10">About 10 minutes</option><option value="20">About 20 minutes</option><option value="30">About 30 minutes</option></select></label>
+    <label for="goalSel">Weekly goal
+      <select id="goalSel"><option value="3">3 days a week</option><option value="4">4 days a week</option><option value="5">5 days a week</option><option value="6">6 days a week</option><option value="7">7 days a week</option></select></label>
     <label for="nasAmt">Nasality work
       <select id="nasAmt"><option value="more">More: every other technique block</option><option value="normal">Normal: twice in each rotation</option><option value="less">Less: once in each rotation</option><option value="off">Off</option></select></label>
     <fieldset class="checks" id="topicBox"><legend>Other technique topics in the rotation</legend></fieldset>
@@ -235,7 +256,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-06.4</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.1</p>
   </div>
 </div>
 
@@ -257,6 +278,9 @@ const pick=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const collapse=t=>t.filter((x,i)=>i===0||x!==t[i-1]);
 const today=()=>new Date().toISOString().slice(0,10);
+/* practice days: all date maths works on the same YYYY-MM-DD strings as today(), counted in whole days */
+const dayN=s=>Math.floor(Date.parse(s)/864e5),dayS=n=>new Date(n*864e5).toISOString().slice(0,10);
+const weekStart=n=>n-(n+3)%7; // Monday of the week holding day n (day 0, 1 Jan 1970, was a Thursday)
 
 /* ---------- YIN pitch detection ---------- */
 function yin(buf,sr){
@@ -880,10 +904,24 @@ async function playOwn(ms){
 }
 async function addClip(label,take){
   if(!take||!take.pcm||take.pcm.length<take.sr*0.3)return;
-  await idb.put("clips",{t:Date.now(),label,pcm:take.pcm,sr:take.sr});
-  const all=await idb.all("clips");
-  for(const c of all.sort((a,b)=>b.t-a.t).slice(20))idb.del("clips",c.id);
+  const old=await idb.all("clips"),rec={t:Date.now(),label,pcm:take.pcm,sr:take.sr};
+  await idb.put("clips",rec);
+  /* the first take of each label is kept for good, as a marked copy, for the then-and-now comparison; an older clip of the label (from before this existed) is the better first */
+  if(!old.some(c=>c.label===label&&c.first)){const o=old.filter(c=>c.label===label).sort((a,b)=>a.t-b.t)[0]||rec;await idb.put("clips",{t:o.t,label,pcm:o.pcm,sr:o.sr,first:true})}
+  const all=await idb.all("clips"),norm=all.filter(c=>!c.first),use=l=>Math.max(0,...norm.filter(c=>c.label===l).map(c=>c.t));
+  for(const c of norm.sort((a,b)=>b.t-a.t).slice(20))idb.del("clips",c.id);
+  /* past 12 labels the first clip of the label used longest ago goes, so free singing stays */
+  for(const c of all.filter(c=>c.first).sort((a,b)=>use(b.label)-use(a.label)).slice(12))idb.del("clips",c.id);
 }
+
+/* ---------- practice days, streak and weekly goal ---------- */
+/* regularity beats length: a day counts when a session ran 3 minutes or more, kept apart from the session history (which needs 4 scores) */
+const goalDays=()=>+store.get("goal",4);
+function noteDay(){const d=store.get("days",[]);if(!d.includes(today())){d.push(today());d.sort();store.set("days",d.slice(-120))}}
+const daysNow=inclToday=>{const d=store.get("days",[]);return inclToday&&!d.includes(today())?[...d,today()]:d};
+function streakOf(days){const s=new Set(days.map(dayN));let n=dayN(today()),k=0;if(!s.has(n))n--;while(s.has(n)){k++;n--}return k}
+const weekDays=(days,mon)=>days.filter(d=>{const n=dayN(d);return n>=mon&&n<mon+7}).length;
+const numWord=n=>n<=10?["zero","one","two","three","four","five","six","seven","eight","nine","ten"][n]:String(n);
 
 /* ---------- range and difficulty ---------- */
 function profile(){return store.get("profile",null)}
@@ -1378,8 +1416,13 @@ async function freeSing(){
   if(!a){await speak("I didn't hear enough singing there.");return}
   S.free=a.spread;
   await speak(freeText(a));
-  if(S.lastTake){const c=clipOf(S.lastTake,3,12);addClip("Free singing",c);
-    if(S.round===1||a.spread>=35){await speak("Here are a few seconds of it.");await playTake(c)}}
+  if(S.lastTake){const c=clipOf(S.lastTake,3,12);await addClip("Free singing",c);
+    const first=(await idb.all("clips")).find(x=>x.label==="Free singing"&&x.first);
+    if(first&&Date.now()-first.t>=14*864e5&&(!D.thenNow||dayN(today())-dayN(D.thenNow)>=14)){
+      D.thenNow=today();saveD();
+      await speak("Here's your free singing from your first week, and then today's.");
+      await playTake(clipOf(first,0,12));await playTake(c);
+    }else if(S.round===1||a.spread>=35){await speak("Here are a few seconds of it.");await playTake(c)}}
 }
 async function resetVoice(){
   await speak("Short reset. Three relaxed sighs on a hum, sliding downwards. Then a sip of water if you have some.");
@@ -1392,6 +1435,7 @@ async function summary(){
   if(prev&&S.round===1){const d=prev.err-avg;t+=Math.abs(d)<3?" That's about the same as last time.":d>0?` That's ${Math.round(d)} cents better than last time.`:` Last time was ${Math.round(-d)} cents better. It varies with the day.`}
   if(S.nasScores.length)t+=` On my rough nasality measure you scored ${Math.round(mean(S.nasScores)*100)} out of a hundred towards your open sound.`;
   if(S.tip.nasal&&!S.cueSaid&&S.done<8&&(S.cueSaid=true))t+=` Today's nasality cue was: ${S.tip.nasal.name}. If it worked for you, star it on the Guide page, and I'll use it more often.`;
+  if(S.round===1){const g=goalDays(),n=weekDays(daysNow(true),weekStart(dayN(today())));t+=n>=g?` That's your weekly goal of ${g} days reached.`:` That's ${n} of your ${g} practice days this week.`}
   await speak(t);
 }
 function saveSession(){
@@ -1530,6 +1574,7 @@ async function session(){
   await loadBank();preloadClips();
   setStage("Starting");
   await speak("Hi, I'm your singing coach. Keep your eyes on the road; everything happens by voice. Stay quiet for a moment while I listen to the car. You'll hear one beep.");
+  {const k=streakOf(daysNow(true));if(k>=2)await speak(`Day ${numWord(k)} in a row.`)}
   await calibrate(2500);
   await latencyCheck();
   if(DL){DL.noise0=dB(S.noise);DL.lat=S.lat;diagSave()}
@@ -1606,7 +1651,7 @@ async function countdown(min){
 }
 async function start(mode,delayMin=0){
   if(S.running)return;
-  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;
+  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;S.sessionStart=0;
   ui.go.textContent=mode==="test"?"End mic test":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
   ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Come back here and press Stop when you arrive.";
   try{
@@ -1622,7 +1667,7 @@ async function start(mode,delayMin=0){
   }catch(e){
     if(!(e instanceof Stopped)){setStage("Something went wrong");ui.say.textContent=e&&e.name==="NotAllowedError"?"The microphone was blocked. Allow microphone access for this page in Chrome, then press Start again.":"Could not start: "+(e&&e.message||e);console.error(e)}
   }finally{
-    if(mode!=="test"){saveSession();diagEnd()}
+    if(mode!=="test"){saveSession();diagEnd();if(S.sessionStart&&(performance.now()-S.sessionStart)*SPEED>=180000)noteDay()}
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.finished&&!S.stop){setStage("Finished");ui.say.textContent="Session finished and saved. Progress has your charts and takes."+diagText()}
@@ -1723,6 +1768,14 @@ async function renderProgress(){
   const h=store.get("history",[]),box=$("charts");box.innerHTML="";
   const lab=(x,i)=>x.d.slice(5)+(h.filter((y,j)=>j<i&&y.d===x.d).length?"·"+(h.filter((y,j)=>j<i&&y.d===x.d).length+1):"");
   const series=(f,tip)=>h.map((x,i)=>({x:lab(x,i),y:f(x),tip:tip?tip(x):null})).filter(p=>p.y!=null&&isFinite(p.y));
+  {const days=daysNow(false),t=dayN(today()),mon=weekStart(t),k=streakOf(days),pr=document.createElement("p"),wk=document.createElement("div");
+    pr.className="hint";pr.textContent=`This week: ${weekDays(days,mon)} of ${goalDays()} days. Streak: ${k} day${k===1?"":"s"}.`;
+    wk.className="weeks";wk.setAttribute("role","group");wk.setAttribute("aria-label","Practice days in the last 8 weeks, oldest first");
+    const set=new Set(days.map(dayN));
+    for(let w=7;w>=0;w--){const m=mon-7*w,col=document.createElement("div");let c=0;
+      for(let i=0;i<7;i++){const q=document.createElement("i");if(set.has(m+i)){q.className="on";c++}else if(m+i>t)q.className="fut";col.append(q)}
+      col.setAttribute("role","img");col.setAttribute("aria-label",`Week of ${dayS(m).slice(5)}: ${c} of 7 days`);wk.append(col)}
+    box.append(pr,wk)}
   const p=profile();
   if(p){const d=document.createElement("p");d.className="hint";d.textContent=`Range ${nname(p.low)} to ${nname(p.high)}, comfortable note ${nname(p.home)}. Levels: notes ${lvl("pm")}, scales ${lvl("sc")}, intervals ${lvl("iv")}, long notes ${lvl("lt")}.`+(D.brk&&D.brk.length?` Your voice tends to flip around ${nname(median(D.brk))}.`:"");box.append(d)}
   box.append(lineChart("Pitch error","average cents off per session, lower is better","¢",series(x=>x.err)));
@@ -1731,7 +1784,18 @@ async function renderProgress(){
   box.append(lineChart("Range","semitones from lowest to highest note"," st",series(x=>x.low!=null?x.high-x.low:null,x=>`${nname(x.low)} to ${nname(x.high)}`)));
   box.append(lineChart("Breath","longest steady S, seconds"," s",series(x=>x.hiss)));
   box.append(lineChart("Longest note","seconds held"," s",series(x=>x.hold)));
-  const clips=(await idb.all("clips")).sort((a,b)=>b.t-a.t),cb=$("clips");cb.innerHTML="";
+  const all=(await idb.all("clips")).sort((a,b)=>b.t-a.t),clips=all.filter(c=>!c.first),cb=$("clips");cb.innerHTML="";
+  /* then and now: the first take of a label against its newest one, once they are a week apart */
+  const tn=$("thenNowList");tn.innerHTML="";
+  for(const f of all.filter(c=>c.first).sort((a,b)=>a.label<b.label?-1:1)){
+    const n=clips.find(c=>c.label===f.label);if(!n||n.t-f.t<7*864e5)continue;
+    const row=document.createElement("div"),r=document.createElement("div"),dt=c=>new Date(c.t).toISOString().slice(5,10);row.className="tn";r.className="row";
+    const nm=document.createElement("b");nm.textContent=f.label;nm.style.fontWeight="500";
+    for(const [txt,list] of [[`▶ First (${dt(f)})`,[f]],[`▶ Latest (${dt(n)})`,[n]],["▶ Both",[f,n]]]){
+      const b=document.createElement("button");b.type="button";b.className="btn";b.textContent=txt;
+      b.onclick=async()=>{if(S.running)return;await ensureCtx();let at=S.ctx.currentTime+0.05;for(const c of list)at+=playBuf(c,at)+0.7};r.append(b)}
+    row.append(nm,r);tn.append(row)}
+  $("thenNow").hidden=!tn.children.length;
   if(!clips.length){cb.innerHTML=`<p class="hint">Takes from your sessions appear here: best takes, nasal and lifted pairs, and free singing.</p>`;return}
   for(const c of clips){const b=document.createElement("button");b.type="button";b.className="btn";
     const dt=new Date(c.t);b.innerHTML=`<span>▶ ${esc(c.label)}</span><small>${dt.toISOString().slice(5,10)} · ${(c.pcm.length/c.sr).toFixed(0)} s</small>`;
@@ -1750,6 +1814,17 @@ $("progBtn").onclick=()=>{if(togglePanel("progress"))renderProgress()};
 /* ---------- guide: examples and cues ---------- */
 const REAL=[["Lip trill","lip-trill"],["Breathy tone","breathy"],["Clear tone","clear"],["Swell: soft, full, soft","swell"],["Separate notes","separate"],["Smooth line","smooth"],["Vibrato","vibrato"],
   ["Vowel ah","vowel-ah"],["Vowel eh","vowel-eh"],["Vowel ee","vowel-ee"],["Vowel oh","vowel-oh"],["Vowel oo","vowel-oo"],["Soft note","soft"],["Full note","full"],["Song line, plain","song-plain"],["Song line, with vibrato","song-vibrato"]];
+const LESSONS=[["Nasality","STOP sounding NASAL when SINGING - Try this Vocal Exercise","Dr Dan's Voice Essentials","https://www.youtube.com/watch?v=TquLC7Gb-Qk"],
+  ["Lip trills","Beginner Lip Trills (Vocal Exercises Series)","The Charismatic Voice","https://www.youtube.com/watch?v=_9OK-jhmffQ"],
+  ["Pitch","I've taught 1,000's of vocal lessons, here's the TRUTH on singing in tune","30 Day Singer","https://www.youtube.com/watch?v=TGwg3R64Jak"],
+  ["Breath","easy way to develop great breath support","Madeleine Harvey","https://www.youtube.com/watch?v=G1zgE1SZ7-4"],
+  ["Clean onsets","4 Types of Vocal Onset","30 Day Singer","https://www.youtube.com/watch?v=HTNJt-EQyBA"],
+  ["Registers","Never Have a Vocal Break Again!","Ramsey Voice Studio","https://www.youtube.com/watch?v=Xeiihs6wWdM"],
+  ["Clear tone","How to STOP singing BREATHY: close the phonatory gap","Dr Dan's Voice Essentials","https://www.youtube.com/watch?v=FFkhKFCSvg8"],
+  ["Smooth line","Secret to SMOOTH & SILKY Singing: 4 LEGATO Exercises","Healthy Vocal Technique","https://www.youtube.com/watch?v=S6pXe7aqnxo"],
+  ["Loose jaw and tongue","Fix Your Jaw & Tongue TENSION While Singing","30 Day Singer","https://www.youtube.com/watch?v=xJhJ0FcrDm8"],
+  ["Posture","Posture & Body Alignment for Singing - Sing Better Right Now!","Healthy Vocal Technique","https://www.youtube.com/watch?v=GwFdntVDQn0"],
+  ["Vowels","Clear, Beautiful VOWELS!! Exactly how to sing ee, eh, ah, oh and oo without tension","The Weekly Warmup - Vocal Exercises for Singers","https://www.youtube.com/watch?v=2LYHtfF2JMA"]];
 const EXAMPLES=[
   ["Lip trill","Close your lips loosely and blow so they flap, like a horse or a motorboat, then add your voice and slide up and down. If they won't flap, press a fingertip into each cheek beside your mouth (only when parked), or hum instead.",p=>DEMO.trill(p)],
   ["Siren","Slide on oo or woo from your lowest note to your highest and back, in one smooth glide.",p=>DEMO.siren(p)],
@@ -1789,6 +1864,7 @@ function renderGuide(){
     }
     box.append(sec);
   }
+  $("lessons").innerHTML=LESSONS.map(([t,v,c,u])=>`<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a><small>${esc(v)} · ${esc(c)}</small></li>`).join("");
 }
 $("guideBtn").onclick=()=>{if(togglePanel("guide"))renderGuide()};
 
@@ -1807,7 +1883,7 @@ async function makeBackup(takes){
   const b={app:"road-voice-coach",kind:"backup",v:1,ver:$("ver").textContent.replace("Version ",""),at:new Date().toISOString(),takes,ls,notes:[],clips:[]};
   if(takes){
     for(const [k,v] of await idbEntries("notes"))b.notes.push({key:k,sr:v.sr,p:v.p,err:v.err,pcm:pcmOut(v.pcm)});
-    for(const [,v] of await idbEntries("clips"))b.clips.push({t:v.t,label:v.label,sr:v.sr,pcm:pcmOut(v.pcm)});
+    for(const [,v] of await idbEntries("clips"))b.clips.push({t:v.t,label:v.label,sr:v.sr,pcm:pcmOut(v.pcm),...(v.first?{first:true}:{})});
   }
   return b;
 }
@@ -1818,7 +1894,7 @@ async function restoreBackup(b){
   if(b.takes){
     await idb.clear("notes");await idb.clear("clips");
     for(const n of b.notes||[])await idb.put("notes",{pcm:pcmIn(n.pcm),sr:n.sr,p:n.p,err:n.err},n.key);
-    for(const c of b.clips||[])await idb.put("clips",{t:c.t,label:c.label,sr:c.sr,pcm:pcmIn(c.pcm)});
+    for(const c of b.clips||[])await idb.put("clips",{t:c.t,label:c.label,sr:c.sr,pcm:pcmIn(c.pcm),...(c.first?{first:true}:{})});
   }
 }
 function bkMsg(t){const m=$("bkMsg");m.textContent=t;m.hidden=!t}
@@ -1830,7 +1906,7 @@ $("bkSave").onclick=async()=>{
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(b)],{type:"application/json"}));
     a.download=`road-voice-coach-backup-${today()}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),10000);
     store.set("bkDate",today());showBkLast();
-    bkMsg(`Saved ${b.clips.length} takes and ${b.notes.length} model notes with your progress and settings. The file is in Downloads.`);
+    bkMsg(`Saved ${b.clips.filter(c=>!c.first).length} takes and ${b.notes.length} model notes with your progress and settings. The file is in Downloads.`);
   }catch(e){bkMsg("Could not make the backup: "+(e&&e.message||e))}
 };
 $("bkLoad").onclick=()=>{if(!S.running)$("bkFile").click()};
@@ -1858,6 +1934,7 @@ async function fillMics(){
 }
 $("micSel").onchange=e=>store.set("mic",e.target.value);
 $("lenSel").value=String(store.get("len",0));$("lenSel").onchange=e=>{store.set("len",+e.target.value);showLen()};showLen();
+$("goalSel").value=String(goalDays());$("goalSel").onchange=e=>store.set("goal",+e.target.value);
 $("nasAmt").value=store.get("nasal","normal");$("nasAmt").onchange=e=>store.set("nasal",e.target.value);
 {const box=$("topicBox"),on=store.get("topics",null);
   for(const [k,name] of TECH.slice(1)){const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=k;c.checked=!on||on.includes(k);
@@ -1867,7 +1944,7 @@ $("nsSel").value=store.get("ns","0");$("nsSel").onchange=e=>store.set("ns",e.tar
 $("fbSel").value=store.get("fb","auto");$("fbSel").onchange=e=>store.set("fb",e.target.value);
 $("keySel").value=store.get("keys","1");$("keySel").onchange=e=>store.set("keys",e.target.value);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
-$("resetBtn").onclick=async()=>{store.set("profile",null);store.set("history",[]);store.set("rangeDate","");D=D0();saveD();
+$("resetBtn").onclick=async()=>{store.set("profile",null);store.set("history",[]);store.set("days",[]);store.set("rangeDate","");D=D0();saveD();
   await idb.clear("notes");await idb.clear("clips");S.bank=new Map();$("resetMsg").hidden=false};
 </script>
 </body>

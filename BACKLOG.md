@@ -48,10 +48,10 @@ The app already follows the evidence on feedback and practice structure; where i
 | --- | --- | --- | --- |
 | Explain, demonstrate, try, test, refine | Lesson structure used by [Singeo](https://blog.singeo.com/how-to-stop-sounding-nasal/) | Explains, plays an example (a real singer where one exists), listens, gives feedback | The demonstration is a real voice for about half the topics only; topics without a pitch score have no test step |
 | One focus per session | [Voice Science](https://www.voicescience.org/articles/how-to-practice-singing/): one micro-skill per session; [Singwell](https://singwell.eu/how-to-practice-singing-at-home/): a single element on one or two phrases | Two technique topics per round plus pitch, songs and free singing | No session focus; nothing is chosen from your weak points |
-| Short, frequent sessions | Voice Science: 20 to 30 minutes a day, and six 10-minute blocks beat one 60-minute session; Singwell: 4 to 6 days a week, "regularity beats length" | Open-ended rounds of roughly 20 to 25 minutes | No session-length setting, no streak or weekly goal |
+| Short, frequent sessions | Voice Science: 20 to 30 minutes a day, and six 10-minute blocks beat one 60-minute session; Singwell: 4 to 6 days a week, "regularity beats length" | Session length setting; practice days, streak and weekly goal | Not yet used on a drive |
 | Feedback less often, self-judgment first | [Motor-learning review](https://pmc.ncbi.nlm.nih.gov/articles/PMC13152083/); [Crocco and Meyer](https://davidmeyervoice.com/site/wp-content/uploads/2021/08/JOS-077-5-2021-Crocco-Meyer-Motor-learning.pdf) | Built | None |
 | Objective feedback | Voice Science: measurable data such as cents matters most for singers without a teacher | Built for pitch | Nasality, tone and onsets rely on your own ear |
-| Record, listen back, compare across weeks | [Pfitzner](https://katrinapfitzner.com/how-to-practice-singing-at-home/): 20-second clips right after singing; Voice Science: compare recordings across weeks | Playback during the session, saved takes | No side-by-side of an old and a new take |
+| Record, listen back, compare across weeks | [Pfitzner](https://katrinapfitzner.com/how-to-practice-singing-at-home/): 20-second clips right after singing; Voice Science: compare recordings across weeks | Playback during the session, saved takes, first take of each kind kept for "Then and now" | Not yet used on a drive |
 | Mixed practice order | Voice Science; motor-learning review | Mixed practice from the fourth session | None |
 | A voice as the model | [Pitch matching with a voice model](https://www.sciencedirect.com/science/article/abs/pii/S0892199713000027); [own-voice advantage](https://www.sciencedirect.com/science/article/abs/pii/S0010028514000036) | Voice-like synthesized notes; your own in-tune takes reused | A real singer in the technique examples only; the pitch notes are still synthesized |
 | Apply technique to song phrases | Singwell; Pfitzner: technique block, then repertoire problem spots; [30 Day Singer](https://www.30daysinger.com/blog/stop-singing-with-a-nasally-voice): sing the melody on "ah" or "mum" before the words | Song practice exists but is separate from the technique topics | No transfer step |
@@ -132,13 +132,13 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 2 | Check the nasality score against your ear: rate replayed takes at home, then keep or drop the score | The score has never been validated | M | Open |
 | 2 | Weak-note map, and practice aimed at your weak notes | The best idea from other apps | M | Open |
 | 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Open |
-| 2 | Old take against new take, side by side | Hearing progress across weeks | S | Open |
+| 2 | Old take against new take, side by side | Hearing progress across weeks | S | Done |
 | 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | In progress |
 | 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Open |
 | 3 | Ear training by voice | Common in other apps | M | Open |
 | 3 | Home mode with a live pitch graph | Visual feedback is the kind that lasted in the research | M | Open |
-| 3 | Streak and weekly goal | Regularity beats length | S | Open |
-| 3 | Guide links to one YouTube lesson per topic | Real demonstrations for watching at home | S | Open |
+| 3 | Streak and weekly goal | Regularity beats length | S | Done |
+| 3 | Guide links to one YouTube lesson per topic | Real demonstrations for watching at home | S | Done |
 | 3 | Steering-wheel buttons: test, then keep or remove | Never tested | S | Needs Paul |
 | 3 | Split the single code file into modules | Maintainability | M | Open |
 |  | Rhythm exercise | Did not work, and you are not interested |  | Dropped |
