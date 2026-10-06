@@ -149,8 +149,11 @@ details th{color:var(--fg)}
 
   <section class="panel" id="guide" hidden>
     <button class="btn back" type="button">← Back to home</button>
-    <h2>Examples</h2>
-    <p class="hint">Tap to hear what an exercise should sound like. The sounds are synthesized for now, so they show the shape of the exercise, not a real voice.</p>
+    <h2>Real singer</h2>
+    <p class="hint">A professional baritone, from the VocalSet recordings by Wilkins, Seetharaman, Wahl and Pardo (2018), used under the CC BY 4.0 licence. Clips are trimmed and levelled.</p>
+    <div class="clips" id="realClips"></div>
+    <h2>Synthesized examples</h2>
+    <p class="hint">For exercises with no real recording yet. They show the shape of the exercise, not the sound of a voice.</p>
     <div class="clips" id="examples"></div>
     <h2>Cues</h2>
     <p class="hint">Each session uses one cue per topic and rotates through them. Star the ones that work for you and the coach will use them more often.</p>
@@ -185,7 +188,7 @@ details th{color:var(--fg)}
       </select>
     </div>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" style="font:.7rem var(--mono)">Version 2026-10-06.1</p>
+    <p class="hint" style="font:.7rem var(--mono)">Version 2026-10-06.2</p>
   </div>
 </div>
 
@@ -728,6 +731,24 @@ const DEMO={
   hiss(){return this.run(2,t=>{const c=S.ctx,n=noiseSrc(t,2),hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=4500;const g=c.createGain();
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.08);g.gain.setValueAtTime(0.25,t+1.8);g.gain.linearRampToValueAtTime(0,t+2);n.connect(hp);hp.connect(g);g.connect(S.out)})}
 };
+/* Real singers: short clips cut from VocalSet (CC BY 4.0, see audio/CREDITS.md). */
+const CLIPS=["lip-trill","breathy","clear","swell","vibrato","smooth","separate","vowel-ah","vowel-eh","vowel-ee","vowel-oh","vowel-oo","soft","full","song-plain","song-vibrato"];
+const clipBuf=new Map();
+async function loadClip(name){
+  if(clipBuf.has(name))return clipBuf.get(name);
+  const pr=(async()=>{const r=await fetch(`audio/${name}.mp3`);if(!r.ok)throw new Error("clip "+r.status);return await S.ctx.decodeAudioData(await r.arrayBuffer())})();
+  clipBuf.set(name,pr);pr.catch(()=>clipBuf.delete(name));return pr;
+}
+function preloadClips(){for(const n of CLIPS)loadClip(n).catch(()=>{})}
+/* plays a real clip; if it is unavailable, plays the synthesized fallback instead */
+async function real(name,fallback){
+  try{
+    await gate();
+    const b=await Promise.race([loadClip(name),new Promise((_,rej)=>after(4000/SPEED,()=>rej(new Error("slow"))))]);
+    const src=S.ctx.createBufferSource(),g=S.ctx.createGain();src.buffer=b;g.gain.value=1.2;src.connect(g);g.connect(S.out);src.start(S.ctx.currentTime+0.05);
+    await sleep(b.duration*1000+250+S.lat);return true;
+  }catch(e){if(e instanceof Stopped||e instanceof Skip)throw e;if(fallback)await fallback();return false}
+}
 function bufOf(take,norm=true){
   const b=S.ctx.createBuffer(1,take.pcm.length,take.sr);b.copyToChannel(take.pcm,0);
   let pk=0;if(norm)for(let i=0;i<take.pcm.length;i+=4){const v=Math.abs(take.pcm[i]);if(v>pk)pk=v}
@@ -1047,8 +1068,8 @@ async function block(name,fn,{sum=true}={}){
 }
 async function warmup(p){
   await speak(`Warm-up. ${tipFor("posture").say}`);
-  await speak("Lip trills. Close your lips loosely and blow so they flap, like a horse or a motorboat, and add your voice. It sounds like this.");
-  await DEMO.trill(p);
+  await speak("Lip trills. Close your lips loosely and blow so they flap, like a horse or a motorboat, and add your voice. A singer does it like this.");
+  await real("lip-trill",()=>DEMO.trill(p));
   await speak("Slide up and down like that, gently, for thirty seconds. If your lips won't flap, hum instead.");
   await sleep(30000);
   await speak("Now hum these five notes.");
@@ -1125,7 +1146,9 @@ const DIC=[
   ["boy","Hold boh, and add the E only at the very end."]];
 async function vowels(p){
   const v=VOW[D.vi%VOW.length];D.vi++;
-  await speak(`Vowel work, on ${v.say}. ${why("vowel")}${v.tip} First one held note, then three notes up, then three notes down. The examples are in the vowel.`);
+  await speak(`Vowel work, on ${v.say}. ${why("vowel")}${v.tip} A singer holds it like this.`);
+  await real("vowel-"+v.k);
+  await speak("First one held note, then three notes up, then three notes down.");
   await rep([p.home],{dur:1.5,hold:true,vowel:v.k,own:false,need:2.5,maxListen:11000,vz:v.k});
   await rep([0,2,4].map(x=>p.home-2+x),{dur:0.8,vowel:v.k,own:false,vz:v.k});
   await rep([4,2,0].map(x=>p.home-2+x),{dur:0.8,vowel:v.k,own:false,vz:v.k});
@@ -1162,7 +1185,9 @@ async function rhythm(){
   }
 }
 async function swell(p){
-  await speak("Dynamics. On this note, start soft, grow to full by the middle, then fade back to soft. Keep the pitch still. Like this.");
+  await speak("Dynamics. On this note, start soft, grow to full by the middle, then fade back to soft. Keep the pitch still. A singer does it like this.");
+  await real("swell");
+  await speak("Now you, on this note.");
   for(const m of [p.home,p.home+2])await rep([m],{dur:4,hold:true,swell:true,always:true,noRetry:true,maxListen:14000,noGuard:true,need:3,own:false,modelFn:()=>DEMO.swell(m)});
 }
 async function starts(p){
@@ -1211,11 +1236,15 @@ async function registers(p){
 }
 async function clearTone(p){
   const tip=tipFor("tone"),m=p.home;
-  await speak(`Clear tone. ${why("tone")}First the contrast. Sing this note very breathy, half whisper, like this.`);
-  await DEMO.breathy(m);setSub("your turn");
+  await speak(`Clear tone. ${why("tone")}First the contrast. A singer sings a scale very breathy, half whisper, like this.`);
+  await real("breathy",()=>DEMO.breathy(m));
+  await speak("Now you, breathy, on this note.");
+  await play([m],1.0);setSub("your turn");
   await listen({max:10000,wait:6000,count:false});setSub("");
   const B=S.lastTake;
-  await speak(`Now clear, with no air leaking, like this. Today's cue: ${tip.say}`);
+  await speak("Now clear, with no air leaking. The same singer, like this.");
+  await real("clear");
+  await speak(`Today's cue: ${tip.say} Your note.`);
   const C=await plainTake(m);
   if(B&&C){await speak("Listen back. Breathy, then clear.");await playTake(B);await sleep(300);await playTake(C)}
   for(const n of [m+2,m+4]){
@@ -1226,10 +1255,10 @@ async function clearTone(p){
 }
 async function legato(p){
   const tip=tipFor("legato"),r=p.home-2;
-  await speak(`Smooth line. ${why("legato")}Choppy sounds like this.`);
-  await DEMO.choppy([0,2,4,2,0].map(x=>r+x));
-  await speak("Smooth sounds like this.");
-  await DEMO.smooth([0,2,4,2,0].map(x=>r+x));
+  await speak(`Smooth line. ${why("legato")}Separate notes sound like this.`);
+  await real("separate",()=>DEMO.choppy([0,2,4,2,0].map(x=>r+x)));
+  await speak("A smooth line sounds like this.");
+  await real("smooth",()=>DEMO.smooth([0,2,4,2,0].map(x=>r+x)));
   await speak(`Sing these notes on one breath, as one unbroken sound. Today's cue: ${tip.say}`);
   for(const [k,syl] of [[0,"On ah."],[2,"On ah again."],[0,"Now on la, with quick L's."]]){
     await speak(syl);
@@ -1327,7 +1356,7 @@ async function session(){
     hiss:0,hold:0,free:null,nasDone:false,cueSaid:false,tip:{},diag:{zero:0,stall:0,tts:0},alertAt:0,ownSaid:false,judgeSaid:false,octSaid:false,breathSaid:false,prevTake:null,lastTake:null});
   const done=store.get("history",[]).length;
   S.fbEvery=store.get("fb","auto")==="all"?1:done<2?1:done<5?2:3;
-  await loadBank();
+  await loadBank();preloadClips();
   setStage("Starting");
   await speak("Hi, I'm your singing coach. Keep your eyes on the road; everything happens by voice. Stay quiet for a moment while I listen to the car. You'll hear one beep.");
   await calibrate(2500);
@@ -1512,6 +1541,8 @@ $("homeBtn").onclick=goHome;$("title").onclick=goHome;document.querySelectorAll(
 $("progBtn").onclick=()=>{if(togglePanel("progress"))renderProgress()};
 
 /* ---------- guide: examples and cues ---------- */
+const REAL=[["Lip trill","lip-trill"],["Breathy tone","breathy"],["Clear tone","clear"],["Swell: soft, full, soft","swell"],["Separate notes","separate"],["Smooth line","smooth"],["Vibrato","vibrato"],
+  ["Vowel ah","vowel-ah"],["Vowel eh","vowel-eh"],["Vowel ee","vowel-ee"],["Vowel oh","vowel-oh"],["Vowel oo","vowel-oo"],["Soft note","soft"],["Full note","full"],["Song line, plain","song-plain"],["Song line, with vibrato","song-vibrato"]];
 const EXAMPLES=[
   ["Lip trill","Close your lips loosely and blow so they flap, like a horse or a motorboat, then add your voice and slide up and down. If they won't flap, press a fingertip into each cheek beside your mouth (only when parked), or hum instead.",p=>DEMO.trill(p)],
   ["Siren","Slide on oo or woo from your lowest note to your highest and back, in one smooth glide.",p=>DEMO.siren(p)],
@@ -1525,6 +1556,12 @@ const EXAMPLES=[
   ["Smooth line","The sound carries on while the pitch changes.",p=>DEMO.smooth([0,2,4,2,0].map(x=>p.home-2+x))],
   ["Steady S","Breathe in low, then let the air out on an even S for as long as is comfortable.",()=>DEMO.hiss()]];
 function renderGuide(){
+  const rl=$("realClips");rl.innerHTML="";
+  for(const [name,id] of REAL){
+    const b=document.createElement("button");b.type="button";b.className="btn";b.innerHTML=`<span>▶ ${esc(name)}</span>`;
+    b.onclick=async()=>{if(S.running)return;S.stop=false;S.skip=false;S.paused=false;S.lat=0;await ensureCtx();try{await real(id)}catch(e){}};
+    rl.append(b);
+  }
   const ex=$("examples");ex.innerHTML="";
   for(const [name,text,fn] of EXAMPLES){
     const d=document.createElement("div");d.className="ex";
