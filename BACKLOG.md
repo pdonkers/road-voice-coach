@@ -8,7 +8,7 @@ The app teaches well enough that you keep using it, but it does not yet listen r
 
 The five things to do next, in order:
 
-1. Confirm the 5 Oct listening fix on a drive, with a diagnostics page so the next problem can be pinned down from data.
+1. Confirm the 5 Oct listening fix on a drive; the diagnostics page that logs every take is built (version 2026-10-06.3), so the drive now gives data.
 2. Record real examples for nasality, sing-ah and onsets with a voice teacher; the VocalSet examples for the other topics went in on 6 Oct.
 3. Add session length and focus settings.
 4. Replace the phone's speech with a natural coach voice.
@@ -118,7 +118,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 
 | Priority | Item | Why | Effort | Status |
 | --- | --- | --- | --- | --- |
-| 1 | Confirm the 5 Oct listening fix on the road, and add a diagnostics page that logs every take: seconds listened, share of frames with a readable pitch, why it ended, noise level | Reliability is the main weakness, and today I fix from your description alone | S | Needs Paul |
+| 1 | Confirm the 5 Oct listening fix on the road, and add a diagnostics page that logs every take: seconds listened, share of frames with a readable pitch, why it ended, noise level (page built in version 2026-10-06.3; the drive is still to do) | Reliability is the main weakness, and today I fix from your description alone | S | Needs Paul |
 | 1 | Real singing examples cut from VocalSet | Demonstration is the biggest teaching gap, and you asked for it | M | Done |
 | 1 | Session length and focus settings: 5, 10 or 20 minutes, which topics, how much nasality | Rounds are long; teachers recommend short sessions with one focus | S | Open |
 | 1 | Natural coach voice from pre-generated speech | The phone voice is robotic and may stop when the app is in the background | L | Open |

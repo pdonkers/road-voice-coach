@@ -4,6 +4,22 @@ Companion to [research.md](research.md) (research and build notes). Newest first
 
 The assessment and prioritized backlog are in [BACKLOG.md](../BACKLOG.md). The working copy is the Claude Doc "Road Voice Coach: assessment and backlog" (https://claude.ai/code/artifact/48816687-019b-4b0f-85eb-14495b2ef7ce, private to Paul). When a backlog item is built, update the status in the doc and re-export it to `BACKLOG.md`, replacing the byline line.
 
+## 6 Oct 2026 (version label 2026-10-06.3): listening diagnostics
+
+The first backlog item: so the next drive gives data and not only a description, the app now logs every take.
+
+Changes:
+- New page "Listening diagnostics", opened from Settings. For each of the last 8 sessions it shows one line per take: time into the session, block, seconds listened, seconds sung, share of that time with a readable pitch, why listening ended (quiet = the singer stopped, limit = time limit, none = never heard the singer, safety = the wall-clock safety stop after audio fell far behind, skip, stop), car noise and voice level in dB, how late the microphone audio arrived, and the last line on screen. Phone events go in the same list: app to background and back on screen, gaps in microphone audio, the microphone giving pure silence, the cut-off warning, speech that did not finish, pause, skip and replay.
+- Copy puts all of it on the clipboard as plain text, to paste into a chat; Save as file downloads the same text. Clear empties the log.
+- Stored in localStorage key `rvc_diag`. A session that crashes or is closed without Stop still keeps its log, marked "not finished".
+- New test `tests/diag.js`.
+
+What to do on the next drive: run a session as usual, then open Settings, Listening diagnostics, press Copy and paste the text into a chat. Takes that ended "quiet" with only a short "sang" time while you were still singing, a low "pitch" share, or a "lag" that keeps growing point to the cause.
+
+Tested in headless Chromium only: a session started with the Start button logs takes and events (pause, resume, skip, stop), the page shows them at phone width without the page scrolling sideways, Copy, Save as file and Clear work, `blocks.js`, `smoke.js`, `navtest.js` and `cut.js` (1.5 s lag, road11) pass with no page errors. Not yet run on the phone.
+
+Backlog updated in the Claude Doc and in `BACKLOG.md`: the first item notes the page is built; its status stays "Needs Paul" for the drive.
+
 ## 6 Oct 2026 (no app change): notes, tests and instructions moved into the repo
 
 The work moved out of the "ToDo" Claude project. The research notes and this changelog now live in `docs/`, the working test scripts in `tests/`, and the standing instructions in `CLAUDE.md`. The app itself is unchanged (version 2026-10-06.2).

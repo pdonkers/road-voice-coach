@@ -75,6 +75,9 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-
 .chart .cross{stroke:var(--dim);stroke-width:1}
 .tip{position:absolute;top:22px;right:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:.75rem var(--mono);color:var(--fg);pointer-events:none}
 details{font-size:.8rem;color:var(--dim)}
+.dlog{display:flex;flex-direction:column;gap:10px}
+.dlog summary{cursor:pointer;color:var(--fg);font:.8rem var(--mono)}
+.dlog pre{margin:6px 0 0;font:.68rem/1.45 var(--mono);color:var(--fg);overflow-x:auto;white-space:pre}
 details table{border-collapse:collapse;font:.78rem var(--mono);margin-top:6px}
 details td,details th{padding:2px 14px 2px 0;text-align:left;font-weight:400}
 details th{color:var(--fg)}
@@ -174,9 +177,35 @@ details th{color:var(--fg)}
     <label for="keySel">Steering-wheel buttons (next = skip, previous = replay take, pause)
       <select id="keySel"><option value="1">On</option><option value="0">Off</option></select></label>
     <div class="row">
+      <button class="btn" id="diagBtn" type="button">Listening diagnostics</button>
+    </div>
+    <div class="row">
       <button class="btn" id="resetBtn" type="button">Forget my range, history and takes</button>
     </div>
     <p class="hint" id="resetMsg" hidden>Everything cleared. The next session starts from scratch.</p>
+  </section>
+
+  <section class="panel" id="diag" hidden>
+    <button class="btn back" type="button">← Back to home</button>
+    <h2>Listening diagnostics</h2>
+    <p class="hint">One line for every time the coach listened, from your last 8 sessions, plus what the phone did (background, microphone cut off, audio stalls). After a drive, press Copy and paste it into a chat with Claude, so a listening problem can be pinned down from data.</p>
+    <div class="row">
+      <button class="btn" id="diagCopy" type="button">Copy</button>
+      <button class="btn" id="diagFile" type="button">Save as file</button>
+      <button class="btn" id="diagClear" type="button">Clear</button>
+    </div>
+    <p class="hint" id="diagMsg" role="status" hidden></p>
+    <div class="dlog" id="diagList"></div>
+    <details><summary>What the columns mean</summary><table>
+      <tr><th>time</th><td>minutes into the session</td></tr>
+      <tr><th>heard</th><td>seconds the coach listened</td></tr>
+      <tr><th>sang</th><td>seconds from the first to the last moment it heard you</td></tr>
+      <tr><th>pitch</th><td>share of that time where it could read a pitch</td></tr>
+      <tr><th>ended</th><td>quiet: you stopped · limit: time limit reached · none: never heard you · safety: audio fell far behind · skip, stop: button pressed</td></tr>
+      <tr><th>noise</th><td>car noise level, dB below full scale</td></tr>
+      <tr><th>voice</th><td>your level while it read a pitch</td></tr>
+      <tr><th>lag</th><td>ms the microphone audio arrived late</td></tr>
+    </table></details>
   </section>
 
   <div class="main home">
@@ -188,7 +217,7 @@ details th{color:var(--fg)}
       </select>
     </div>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" style="font:.7rem var(--mono)">Version 2026-10-06.2</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-06.3</p>
   </div>
 </div>
 
@@ -533,10 +562,11 @@ async function openMic(){
   const onChunk=d=>{
     const raw=d[0],fl=d[1],n=raw.length;
     const now=performance.now();
-    if(S.lastChunk&&now-S.lastChunk>1500)S.diag.stall+=now-S.lastChunk;
+    if(S.lastChunk&&now-S.lastChunk>1500){S.diag.stall+=now-S.lastChunk;diagEv(`no audio from the mic for ${((now-S.lastChunk)/1000).toFixed(1)} s`)}
     S.lastChunk=now;
     let silent=true;for(let i=0;i<n;i+=16){if(raw[i]!==0){silent=false;break}}
-    if(silent){S.zeroRun=(S.zeroRun||0)+n/c.sampleRate*1000;S.diag.zero+=n/c.sampleRate*1000;if(S.zeroRun>4000)micAlert()}else S.zeroRun=0;
+    if(silent){S.zeroRun=(S.zeroRun||0)+n/c.sampleRate*1000;S.diag.zero+=n/c.sampleRate*1000;if(S.zeroRun>4000)micAlert()}
+    else{if(S.zeroRun>1000)diagEv(`mic gave pure silence for ${(S.zeroRun/1000).toFixed(1)} s`);S.zeroRun=0}
     if(S.rec)S.rec.push(raw);
     if(n>=4096)S.buf.set(fl.subarray(n-4096));else{S.buf.copyWithin(0,n);S.buf.set(fl,4096-n)}
     if(S.clock0==null)S.clock0=clock();
@@ -559,7 +589,7 @@ async function openMic(){
 /* Android can cut a web page's microphone when the phone is locked or the app is in the background. Say so instead of failing silently. */
 function micAlert(){
   if(!S.running||S.mode!=="session")return;
-  const now=performance.now();if(S.alertAt&&now-S.alertAt<60000)return;S.alertAt=now;
+  const now=performance.now();if(S.alertAt&&now-S.alertAt<60000)return;S.alertAt=now;diagEv("microphone cut off warning");
   ui.say.textContent="The phone cut off the microphone. Open this app on screen to carry on.";
   try{speechSynthesis.speak(utter("I can't hear the microphone any more. The phone may have cut it off. Open the app on screen to carry on."))}catch(e){}
 }
@@ -640,7 +670,7 @@ async function listen({max=8000,wait=6000,endSil=1500,spec=null,active=null,coun
      ended takes early whenever audio delivery had fallen behind (after any glitch or pause). */
   const at=()=>S.clock0==null?clock():S.clock0+S.samp/S.ctx.sampleRate*1000*SPEED;
   S.specMode=spec;S.frames=[];recStart();
-  const t0=at(),w0=clock();let first=0,last=0,idx=0,run=0;
+  const t0=at(),w0=clock();let first=0,last=0,idx=0,run=0,end="stop";
   try{
     while(true){
       await sleep(50*SPEED);
@@ -651,11 +681,13 @@ async function listen({max=8000,wait=6000,endSil=1500,spec=null,active=null,coun
         if(first&&alive(f))last=Math.max(last,f.t-t0);
       }
       const now=at()-t0;
-      if(now>max||clock()-w0>max+8000)break;
-      if(!first&&now>wait)break;
-      if(first&&now-last>endSil&&now-first>600)break;
+      if(now>max){end=first?"limit":"none";break}
+      if(clock()-w0>max+8000){end="safety";break}
+      if(!first&&now>wait){end="none";break}
+      if(first&&now-last>endSil&&now-first>600){end="quiet";break}
     }
-  }finally{S.specMode=null}
+  }catch(e){if(e instanceof Skip)end="skip";throw e}
+  finally{S.specMode=null;diagTake(S.frames,t0,first,last,end,at()-t0,clock()-w0)}
   const f=S.frames;S.frames=null;
   const pcm=recStop();
   const on=f.filter(act);
@@ -787,7 +819,7 @@ async function speak(text,caption=true){
     const fin=()=>{if(done)return;done=true;waiters.delete(poll);clearInterval(iv);offTo();try{chk()}catch(e){return rej(e)}after((150+S.lat)/SPEED,res)};
     const poll=()=>{if(S.stop||S.skip){try{speechSynthesis.cancel()}catch(e){}fin()}};
     const iv=setInterval(poll,100);waiters.add(poll);
-    let offTo=after((2500+text.length*95)/SPEED,()=>{S.diag.tts++;fin()});
+    let offTo=after((2500+text.length*95)/SPEED,()=>{S.diag.tts++;diagEv("coach voice did not finish speaking");fin()});
     if(!("speechSynthesis" in window)){offTo();offTo=after((1200+text.length*60)/SPEED,fin);return}
     const u=utter(text);u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);
   });
@@ -1350,6 +1382,85 @@ function saveSession(){
   store.set("history",hist.slice(-80));saveD();
 }
 
+/* ---------- listening diagnostics ---------- */
+/* One entry per take and per phone event, kept on the phone for the last 8 sessions, so a listening problem on the road can be found from data. */
+const dB=x=>x>0?Math.round(20*Math.log10(x)):-99;
+let DL=null,DLS=null;
+const diagAll=()=>DLS||(DLS=store.get("diag",[]));
+const diagT=()=>DL?Math.round((Date.now()-DL.at)/1000):0;
+function diagSave(){
+  if(!DL)return;const all=diagAll();if(!all.includes(DL))all.push(DL);
+  while(all.length>8)all.shift();store.set("diag",all);
+}
+function diagBegin(){
+  const tr=S.stream&&S.stream.getAudioTracks()[0];
+  DL={at:Date.now(),ver:$("ver").textContent.replace("Version ",""),mic:tr&&tr.label||"",ns:store.get("ns","0")==="1",sr:S.ctx?S.ctx.sampleRate:0,takes:[],ev:[]};
+  diagSave();
+}
+function diagEnd(){
+  if(!DL)return;
+  Object.assign(DL,{min:Math.round((Date.now()-DL.at)/60000),mute:Math.round(S.diag.zero/1000),stall:Math.round(S.diag.stall/1000),tts:S.diag.tts});
+  diagSave();DL=null;
+}
+function diagEv(e){if(!DL)return;DL.ev.push([diagT(),e]);if(DL.ev.length>300)DL.ev.shift();diagSave()}
+function diagTake(f,t0,first,last,end,dur,wall){
+  try{
+    if(!DL||!f)return;
+    /* the share of readable pitch is counted over the time the singer was heard, or over the whole take if they never were */
+    const span=first?f.filter(x=>x.t-t0>=first-120&&x.t-t0<=last):f,vo=f.filter(x=>x.m!=null);
+    DL.takes.push({t:diagT(),b:stageName,heard:+(dur/1000).toFixed(1),sang:first?+((last-first)/1000).toFixed(1):0,
+      pitch:span.length?Math.round(span.filter(x=>x.m!=null).length/span.length*100):0,end,
+      noise:dB(S.noise),voice:vo.length?dB(median(vo.map(x=>x.r))):null,lag:Math.max(0,Math.round(wall-dur)),say:ui.say.textContent.slice(0,60)});
+    if(DL.takes.length>400)DL.takes.shift();
+    diagSave();
+  }catch(e){}
+}
+const p2=n=>String(n).padStart(2,"0");
+const mmss=t=>`${Math.floor(t/60)}:${p2(t%60)}`;
+const diagDate=s=>{const d=new Date(s.at);return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
+function diagSummary(s){
+  const n=s.takes.length,c=k=>s.takes.filter(x=>x.end===k).length,sung=s.takes.filter(x=>x.sang>0);
+  const out=[diagDate(s),s.min!=null?`${s.min} min`:"not finished",`${n} takes`];
+  if(n){out.push(`pitch read ${sung.length?Math.round(median(sung.map(x=>x.pitch))):0}%`);
+    for(const [k,w] of [["none","never heard"],["limit","at time limit"],["safety","safety stop"]])if(c(k))out.push(`${c(k)} ${w}`)}
+  return out.join(" · ");
+}
+function diagLines(s){
+  const L=[`Session ${diagDate(s)}, version ${s.ver}, `+(s.min!=null?`${s.min} min`:"not finished (closed or crashed)"),
+    `Mic: ${s.mic||"unknown"} · noise filter ${s.ns?"on":"off"} · ${s.sr} Hz`+(s.lat!=null?` · speaker delay ${s.lat} ms · car noise at start ${s.noise0} dB`:"")];
+  if(s.min!=null)L.push(`Mic gave silence ${s.mute} s · audio stalled ${s.stall} s · coach voice failures ${s.tts}`);
+  L.push("","  time block                heard  sang pitch ended  noise voice  lag  last line spoken");
+  const rows=s.takes.map(x=>[x.t,x]).concat(s.ev.map(e=>[e[0],e[1]])).sort((a,b)=>a[0]-b[0]);
+  for(const [t,x] of rows){
+    if(typeof x==="string"){L.push(`${mmss(t).padStart(6)} -- ${x}`);continue}
+    L.push(`${mmss(t).padStart(6)} ${x.b.slice(0,20).padEnd(20)} ${x.heard.toFixed(1).padStart(5)} ${x.sang.toFixed(1).padStart(5)} ${(x.pitch+"%").padStart(5)} ${x.end.padEnd(6)} ${String(x.noise).padStart(5)} ${String(x.voice==null?"":x.voice).padStart(5)} ${String(x.lag).padStart(4)}  ${x.say}`);
+  }
+  return L;
+}
+const diagExport=()=>"Road Voice Coach listening diagnostics\n\n"+diagAll().slice().reverse().map(s=>diagLines(s).join("\n")).join("\n\n")+"\n";
+function diagMsg(t){const m=$("diagMsg");m.textContent=t;m.hidden=!t}
+function renderDiag(){
+  const box=$("diagList"),all=diagAll().slice().reverse();box.innerHTML="";diagMsg("");
+  if(!all.length){box.innerHTML=`<p class="hint">Nothing logged yet. Every session you run is logged here.</p>`;return}
+  all.forEach((s,i)=>{
+    const d=document.createElement("details");d.open=i===0;
+    const sm=document.createElement("summary");sm.textContent=diagSummary(s);
+    const pre=document.createElement("pre");pre.textContent=diagLines(s).join("\n");
+    d.append(sm,pre);box.append(d);
+  });
+}
+$("diagCopy").onclick=async()=>{
+  const t=diagExport();
+  try{await navigator.clipboard.writeText(t);diagMsg("Copied. Paste it into a chat with Claude.")}
+  catch(e){const a=document.createElement("textarea");a.value=t;document.body.append(a);a.select();
+    try{document.execCommand("copy");diagMsg("Copied. Paste it into a chat with Claude.")}catch(e2){diagMsg("Copying failed. Use Save as file instead.")}a.remove()}
+};
+$("diagFile").onclick=()=>{
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([diagExport()],{type:"text/plain"}));
+  a.download=`road-voice-coach-diagnostics-${today()}.txt`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+};
+$("diagClear").onclick=()=>{if(S.running||!confirm("Clear the diagnostics log?"))return;DLS=[];store.set("diag",[]);renderDiag()};
+
 /* ---------- session ---------- */
 async function session(){
   Object.assign(S,{scores:[],biases:[],round:0,misses:0,sessionStart:performance.now(),base:0,loud:0,loudAt:-1e9,repN:0,nas:null,nasScores:[],
@@ -1361,6 +1472,7 @@ async function session(){
   await speak("Hi, I'm your singing coach. Keep your eyes on the road; everything happens by voice. Stay quiet for a moment while I listen to the car. You'll hear one beep.");
   await calibrate(2500);
   await latencyCheck();
+  if(DL){DL.noise0=dB(S.noise);DL.lat=S.lat;diagSave()}
   let p=profile();
   if(!p||store.get("rangeDate","")!==today())p=await findRange();
   store.set("rangeDate",today());
@@ -1409,6 +1521,7 @@ async function start(mode,delayMin=0){
     if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
     try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}
     await openMic();
+    if(mode!=="test")diagBegin();
     if(mode==="test"){setStage("Mic test");ui.say.textContent="Sing a note. The You box and the needle should follow your voice. If the level bar jumps while you're silent, turn on the road-noise filter in Settings.";await calibrate(1500);
       while(true){await sleep(200*SPEED)}}
     mediaOn();showCtl(true);
@@ -1417,7 +1530,7 @@ async function start(mode,delayMin=0){
   }catch(e){
     if(!(e instanceof Stopped)){setStage("Something went wrong");ui.say.textContent=e&&e.name==="NotAllowedError"?"The microphone was blocked. Allow microphone access for this page in Chrome, then press Start again.":"Could not start: "+(e&&e.message||e);console.error(e)}
   }finally{
-    if(mode!=="test")saveSession();
+    if(mode!=="test"){saveSession();diagEnd()}
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. Progress has your charts and takes; Guide has the cues you heard."+diagText();}
@@ -1439,14 +1552,14 @@ const setLater=()=>{laterBtn.textContent=`Start in ${delaySel.value} min`};setLa
 delaySel.onchange=()=>{store.set("delay",+delaySel.value);setLater()};
 laterBtn.onclick=()=>{if(!S.running)start("session",+delaySel.value)};
 $("testBtn").onclick=()=>{if(S.running){if(S.mode==="test")stop();return}showView(null);start("test")};
-document.addEventListener("visibilitychange",async()=>{if(S.running&&document.visibilityState==="visible"){try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}}});
+document.addEventListener("visibilitychange",async()=>{if(S.running)diagEv(document.visibilityState==="visible"?"app back on screen":"app went to the background");if(S.running&&document.visibilityState==="visible"){try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}}});
 
 /* ---------- hands-free controls: steering-wheel media buttons ---------- */
-function doSkip(){if(S.running&&S.mode==="session"&&S.canSkip)S.skip=true}
-function doReplay(){if(S.running&&S.mode==="session")S.replayReq=true}
+function doSkip(){if(S.running&&S.mode==="session"&&S.canSkip){S.skip=true;diagEv("skip pressed")}}
+function doReplay(){if(S.running&&S.mode==="session"){S.replayReq=true;diagEv("replay pressed")}}
 function doPause(on){
   if(!S.running||S.mode!=="session"||S.paused===on)return;
-  S.paused=on;showCtl(true);
+  S.paused=on;showCtl(true);diagEv(on?"paused":"resumed");
   try{navigator.mediaSession.playbackState=on?"paused":"playing"}catch(e){}
   try{speechSynthesis.cancel();speechSynthesis.speak(utter(on?"Paused. Press play to carry on.":"Carrying on."))}catch(e){}
   setSub(on?"paused":"");
@@ -1530,8 +1643,8 @@ async function renderProgress(){
     const dt=new Date(c.t);b.innerHTML=`<span>▶ ${esc(c.label)}</span><small>${dt.toISOString().slice(5,10)} · ${(c.pcm.length/c.sr).toFixed(0)} s</small>`;
     b.onclick=async()=>{if(S.running)return;await ensureCtx();playBuf(c,S.ctx.currentTime+0.05)};cb.append(b)}
 }
-const panels=["progress","guide","settings"];
-const navOf={progress:"progBtn",guide:"guideBtn",settings:"setBtn"};
+const panels=["progress","guide","settings","diag"];
+const navOf={progress:"progBtn",guide:"guideBtn",settings:"setBtn",diag:"setBtn"};
 function markNav(){const open=panels.find(x=>!$(x).hidden),cur=open?navOf[open]:(S.running&&S.mode==="test"?"testBtn":"homeBtn");
   document.querySelectorAll(".links button").forEach(b=>b.id===cur?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"))}
 function showView(id){panels.forEach(x=>$(x).hidden=x!==id);document.querySelector(".wrap").classList.toggle("panel-open",!!id);markNav();window.scrollTo(0,0)}
@@ -1587,6 +1700,7 @@ $("guideBtn").onclick=()=>{if(togglePanel("guide"))renderGuide()};
 
 /* ---------- settings ---------- */
 $("setBtn").onclick=()=>{if(togglePanel("settings"))fillMics()};
+$("diagBtn").onclick=()=>{showView("diag");renderDiag()};
 async function fillMics(){
   try{
     const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput");

@@ -2,7 +2,7 @@
 
 App: https://pdonkers.github.io/road-voice-coach/ (repo pdonkers/road-voice-coach, GitHub Pages from main). Installed on Paul's Android phone as a web app; used in a Volvo over the car speakers with the phone's microphone.
 
-Status (6 Oct 2026, commit b19046a, version label 2026-10-06.2): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
+Status (6 Oct 2026, version label 2026-10-06.3): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
 
 Fixed requirements from Paul: press Start once and never touch the screen again; spoken feedback; English coach; beginner with auto-detected range; exercises plus free singing. He sings nasally (true nasality, confirmed with the nose-pinch test, so the app does not test for it) and reducing that is a main goal. He is not interested in rhythm practice.
 
@@ -26,8 +26,9 @@ Fixed requirements from Paul: press Start once and never touch the screen again;
 - Background running: pitch analysis and all waits are driven by incoming microphone audio (AudioWorklet messages), not page timers; a silent audio loop plays during sessions. Mic cut-off detection (digital silence 4 s, track mute/ended, or audio blocks stopping) triggers a spoken alert; the end-of-session message reports muted/suspended seconds and failed coach utterances.
 - Delayed start: "Start in N min" opens the mic at the press and counts down; Skip starts at once.
 - Navigation: Home link, title tap and Back buttons; panels open as separate views. A version label on the home screen shows which build is loaded.
+- Listening diagnostics (Settings, then "Listening diagnostics"): every `listen()` call in a session adds one entry to `rvc_diag` (localStorage, last 8 sessions, at most 400 takes and 300 events each): block, seconds listened, seconds sung (first to last heard frame), share of that span with a readable pitch, why the take ended (quiet, limit, none, safety, skip, stop), noise floor and voice level in dBFS, how late the mic audio arrived, and the last caption. Phone events are logged with it: app to background and back, gaps in mic audio over 1.5 s, runs of digital silence, the mic cut-off warning, coach speech timeouts, pause, skip and replay. The page shows each session as a table, and Copy or Save as file exports all of it as text.
 - Speaker-to-mic delay is measured with a beep at session start so the coach does not hear its own output over Bluetooth.
-- Data on the phone only: localStorage keys `rvc_data`, `rvc_profile`, `rvc_history`, `rvc_rangeDate` and the settings; IndexedDB `rvc` (stores `notes` and `clips`).
+- Data on the phone only: localStorage keys `rvc_data`, `rvc_profile`, `rvc_history`, `rvc_rangeDate`, `rvc_diag` and the settings; IndexedDB `rvc` (stores `notes` and `clips`).
 - Hosting constraint: the microphone needs HTTPS, which is why the app is on GitHub Pages; a Claude artifact cannot use the microphone.
 - Untested on a real phone: the 5 Oct listening fix on the road, running with the phone locked or in the background (a Chromium issue reports the mic stopping about 2 minutes after Chrome is backgrounded on some setups), whether the phone's text-to-speech keeps speaking from the background, steering-wheel media buttons, hiss timing and nasality score over road noise, hum detection with the 340 Hz filter.
 - Testing so far: headless Chromium runs with a simulated microphone, including with timers throttled to 1 Hz. The scripts are in `tests/`.
