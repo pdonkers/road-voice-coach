@@ -25,6 +25,12 @@ Other things it does:
 
 Steering-wheel media buttons: next skips the exercise, previous replays your last take, pause pauses.
 
-The assessment of the app and the list of planned improvements are in [BACKLOG.md](BACKLOG.md).
-
 The Progress page shows charts per session and lets you replay saved takes. After pressing Start you can switch to another app such as navigation; the session keeps running in the background. Everything runs in the browser; range, progress and recordings stay on the phone.
+
+## Project files
+
+- [BACKLOG.md](BACKLOG.md): assessment of the app and the list of planned improvements.
+- [docs/research.md](docs/research.md): requirements, what the app contains, and the research behind it.
+- [docs/changelog.md](docs/changelog.md): what changed when, and reports from real drives.
+- [tests/](tests/README.md): the scripts used to check the app after each change.
+- [CLAUDE.md](CLAUDE.md): standing instructions for Claude sessions that work on this repo.

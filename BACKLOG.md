@@ -36,7 +36,7 @@ The app runs a complete hands-free session and is in real use, but most of what 
 | Breath timer, register-flip detection, smooth-line break count | Built | Simulation only |
 | Progress page and saved takes | Works | Headless browser tests |
 | Your data (range, history, takes, starred cues) | Stored only on the phone | No backup or export |
-| Code | One HTML file of about 1,500 lines; the tests are not in the repository | Each fix so far risked breaking something else |
+| Code | One HTML file of about 1,500 lines; the test scripts are in the repository since 6 Oct but are run by hand | Each fix so far risked breaking something else |
 
 The pattern across the three drives is that the teaching content holds up and the listening does not yet. Reliability on the road is the main weakness, ahead of any missing feature.
 
@@ -124,7 +124,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 1 | Natural coach voice from pre-generated speech | The phone voice is robotic and may stop when the app is in the background | L | Open |
 | 1 | Test running in the background and with the phone locked | Unverified; the result decides whether a native Android wrapper is needed | S | Needs Paul |
 | 1 | Backup and export of your data | Range, history, takes and starred cues live on one phone | S | Open |
-| 1 | Automated tests in the repository | Each fix so far has risked breaking something else | M | Open |
+| 1 | Automated tests in the repository | Each fix so far has risked breaking something else | M | In progress |
 | 2 | Transfer step: after a technique block, sing a song phrase on "ah" or "mum" with the same cue, then with the words | Standard teaching practice; technique work does not reach songs yet | M | Open |
 | 2 | Teacher-recorded examples for nasality, sing-ah and onsets | No open recording covers them | S | Needs Paul |
 | 2 | More nasality exercises from teachers: hold "hung", "uh" opening to "ah", puffed cheeks, breathing in on a "k", dopey tone | Your main goal, and more variety | S | Open |
@@ -148,7 +148,7 @@ Done in today's update, before this backlog: nasality moved into the technique r
 
 ## Sources
 
-Pages opened for this document. The feedback and motor-learning studies behind the earlier design are in the project note "road-voice-coach-research".
+Pages opened for this document. The feedback and motor-learning studies behind the earlier design are in docs/research.md in the repository.
 
 - Teaching practice: [Evidence-Based Voice Pedagogy (Ragan)](https://kariragan.com/defining-evidence-based-voice-pedagogy-a-new-framework/) · [How to practice singing (Voice Science)](https://www.voicescience.org/articles/how-to-practice-singing/) · [4-part practice plan (Singwell)](https://singwell.eu/how-to-practice-singing-at-home/) · [Practice at home (Pfitzner)](https://katrinapfitzner.com/how-to-practice-singing-at-home/)
 - Teachers' lessons: [How to stop sounding nasal (Singeo)](https://blog.singeo.com/how-to-stop-sounding-nasal/) · [Stop singing with a nasally voice (30 Day Singer)](https://www.30daysinger.com/blog/stop-singing-with-a-nasally-voice) · [Tips to reduce nasality (Performance High)](https://performancehigh.net/tips-to-reduce-nasality-in-the-voice/) · [10 exercises to sing without straining (Ramsey Voice Studio)](https://ramseyvoice.com/sing-without-straining/) · [8 daily vocal drills (Talkalman)](https://lessons.talkalmanmusic.com/blog/beginner-singing-warm-ups/) · [Best singing lessons on YouTube (Music Industry How To)](https://www.musicindustryhowto.com/best-singing-lessons-on-youtube/)
