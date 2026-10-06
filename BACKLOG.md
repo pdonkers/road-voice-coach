@@ -129,9 +129,9 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 2 | Teacher-recorded examples for nasality, sing-ah and onsets | No open recording covers them | S | Needs Paul |
 | 2 | More nasality exercises from teachers: hold "hung", "uh" opening to "ah", puffed cheeks, breathing in on a "k", dopey tone | Your main goal, and more variety | S | Done |
 | 2 | Exercise sounds with a job ("ng", "gee", "mum", "nuh") and a half-step climb | Core teacher repertoire that the app lacks | M | Done |
-| 2 | Check the nasality score against your ear: rate replayed takes at home, then keep or drop the score | The score has never been validated | M | Open |
+| 2 | Check the nasality score against your ear: rate replayed takes at home, then keep or drop the score | The score has never been validated | M | Tool built; ratings need Paul |
 | 2 | Weak-note map, and practice aimed at your weak notes | The best idea from other apps | M | Done |
-| 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Open |
+| 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Done |
 | 2 | Old take against new take, side by side | Hearing progress across weeks | S | Done |
 | 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | Done |
 | 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Open |

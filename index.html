@@ -76,6 +76,7 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-
 .chart .nb{fill:var(--flat)}
 .chart .nb.w{fill:var(--amber)}
 .chart .nb.f{opacity:.3}
+.chart .pt{fill:var(--flat);opacity:.6}
 .tip{position:absolute;top:22px;right:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:.75rem var(--mono);color:var(--fg);pointer-events:none}
 details{font-size:.8rem;color:var(--dim)}
 .checks{border:1px solid var(--line);border-radius:8px;margin:0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -161,6 +162,11 @@ details th{color:var(--fg)}
     <button class="btn back" type="button">← Back to home</button>
     <h2>Progress</h2>
     <div id="charts" style="display:flex;flex-direction:column;gap:18px"></div>
+    <div>
+      <h2 style="margin-bottom:8px">Nasality measure</h2>
+      <p class="hint" style="margin-bottom:8px">Does the coach's nasality score match what you hear? Rate your own takes at home, never while driving.</p>
+      <button class="btn" id="ncBtn" type="button">Check the nasality measure</button>
+    </div>
     <div id="thenNow" hidden>
       <h2 style="margin-bottom:8px">Then and now</h2>
       <p class="hint" style="margin-bottom:8px">Your first saved take of each kind, kept for good, against your latest one.</p>
@@ -170,6 +176,13 @@ details th{color:var(--fg)}
       <h2 style="margin-bottom:8px">Saved takes</h2>
       <div class="clips" id="clips"></div>
     </div>
+  </section>
+
+  <section class="panel" id="nasCheck" hidden>
+    <button class="btn back" type="button">← Back to home</button>
+    <h2>Check the nasality measure</h2>
+    <p class="hint">At home, never while driving. Listen to your own takes and say how nasal each one sounded. The coach's score for the take stays hidden until you have rated at least 8, then it is compared with your ear.</p>
+    <div id="ncBody" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
 
   <section class="panel" id="guide" hidden>
@@ -206,6 +219,8 @@ details th{color:var(--fg)}
     <label for="nasAmt">Nasality work
       <select id="nasAmt"><option value="more">More: every other technique block</option><option value="normal">Normal: twice in each rotation</option><option value="less">Less: once in each rotation</option><option value="off">Off</option></select></label>
     <fieldset class="checks" id="topicBox"><legend>Other technique topics in the rotation</legend></fieldset>
+    <label for="focSel">Session focus
+      <select id="focSel"><option value="auto">Automatic, from my results</option><option value="none">None, just rotate</option></select></label>
     <label for="fbSel">Spoken feedback
       <select id="fbSel"><option value="auto">Automatic: less often as you gain experience</option><option value="all">After every exercise</option></select></label>
     <label for="keySel">Steering-wheel buttons (next = skip, previous = replay take, pause)
@@ -261,7 +276,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.3</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.4</p>
   </div>
 </div>
 
@@ -519,7 +534,7 @@ function analyseHold(frames,target,o={}){
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
-const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{}});
+const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{},lastT:{}});
 let D=Object.assign(D0(),store.get("data",{}));
 const saveD=()=>store.set("data",D);
 const idb={db:null,
@@ -914,14 +929,17 @@ async function playOwn(ms){
     const d=playBuf(e,t,Math.pow(2,(near-e.p)/12));setTimeout(()=>{if(!S.stop)setTarget(m)},tot*1000/SPEED);t+=d+0.12;tot+=d+0.12});
   await sleep(tot*1000+200+S.lat);
 }
-async function addClip(label,take){
+/* nas: the nasality measure's score for the take (0 to 100, 100 = open), kept so Paul can check it against his ear (Progress, "Check the nasality measure") */
+async function addClip(label,take,nas=null){
   if(!take||!take.pcm||take.pcm.length<take.sr*0.3)return;
-  const old=await idb.all("clips"),rec={t:Date.now(),label,pcm:take.pcm,sr:take.sr};
+  const old=await idb.all("clips"),rec={t:Date.now(),label,pcm:take.pcm,sr:take.sr,nas};
   await idb.put("clips",rec);
   /* the first take of each label is kept for good, as a marked copy, for the then-and-now comparison; an older clip of the label (from before this existed) is the better first */
-  if(!old.some(c=>c.label===label&&c.first)){const o=old.filter(c=>c.label===label).sort((a,b)=>a.t-b.t)[0]||rec;await idb.put("clips",{t:o.t,label,pcm:o.pcm,sr:o.sr,first:true})}
+  if(!old.some(c=>c.label===label&&c.first)){const o=old.filter(c=>c.label===label).sort((a,b)=>a.t-b.t)[0]||rec;await idb.put("clips",{t:o.t,label,pcm:o.pcm,sr:o.sr,nas:o.nas==null?null:o.nas,first:true})}
   const all=await idb.all("clips"),norm=all.filter(c=>!c.first),use=l=>Math.max(0,...norm.filter(c=>c.label===l).map(c=>c.t));
-  for(const c of norm.sort((a,b)=>b.t-a.t).slice(20))idb.del("clips",c.id);
+  /* scored takes have their own allowance, so rating material does not push the best takes and free singing out */
+  for(const c of norm.filter(c=>c.nas==null).sort((a,b)=>b.t-a.t).slice(20))idb.del("clips",c.id);
+  for(const c of norm.filter(c=>c.nas!=null).sort((a,b)=>b.t-a.t).slice(20))idb.del("clips",c.id);
   /* past 12 labels the first clip of the label used longest ago goes, so free singing stays */
   for(const c of all.filter(c=>c.first).sort((a,b)=>use(b.label)-use(a.label)).slice(12))idb.del("clips",c.id);
 }
@@ -1287,6 +1305,7 @@ async function nasality(p){
     if(!T.take){await speak("I didn't hear that one.");return}
     let msg="";
     if(S.nas&&T.np!=null){const sc=clamp((T.np-S.nas.n)/(S.nas.l-S.nas.n),0,1);S.nasScores.push(sc);if(credit){const st=tipStat(tip.id);st.sc=(st.sc||0)+sc;st.scn=(st.scn||0)+1}
+      addClip("Lifted ah",T.take,Math.round(sc*100));
       msg=sc>=0.65?"By my rough measure that was on the open side. ":sc<=0.35?"By my rough measure that drifted towards the nasal sound. ":"By my rough measure that was in between. "}
     await speak(msg+"Listen.");await playTake(T.take);
   };
@@ -1686,6 +1705,27 @@ function techRotation(){
   others.forEach((t,i)=>{for(let j=0;j<k;j++)if(Math.min(n-1,Math.floor(j*n/k+0.5))===i)rot.push(nas);rot.push(t)});
   return rot;
 }
+/* The session's one focus, chosen from the enabled technique topics (the ones in the rotation). Nasality first, being Paul's main goal:
+   its latest score is low (under 50) or has fallen 8 points below the sessions before; then the registers, when the notes around the usual
+   break (D.brk) are 25 cents or more off (and clearly worse than the rest of the map); otherwise the topic practised longest ago (D.lastT, never = oldest). */
+function pickFocus(rot){
+  if(store.get("focus","auto")==="none")return null;
+  const ts=TECH.filter(t=>rot.some(r=>r[0]===t[0]));if(ts.length<2)return null;
+  const has=k=>ts.find(t=>t[0]===k);
+  const nv=store.get("history",[]).map(h=>h.nasal).filter(x=>x!=null),last=nv[nv.length-1],prev=nv.slice(-4,-1);
+  if(has("nasality")&&last!=null){
+    if(last<50)return {t:has("nasality"),why:`nasality score is low, ${last}`};
+    if(prev.length&&last<=mean(prev)-8)return {t:has("nasality"),why:`nasality score is falling, ${last} after ${Math.round(mean(prev))}`};
+  }
+  const brk=D.brk||[];
+  if(has("registers")&&brk.length>=2){
+    const b=median(brk),all=Object.entries(D.notes||{}).filter(([,v])=>v.n>=3).map(([m,v])=>[+m,v.err]),near=all.filter(([m])=>Math.abs(m-b)<=2),far=all.filter(([m])=>Math.abs(m-b)>2);
+    if(near.length>=2){const e=mean(near.map(x=>x[1]));
+      if(e>=25&&(far.length<2||e>=mean(far.map(x=>x[1]))*1.25))return {t:has("registers"),why:`notes near the register break, ${nname(b)}, are ${Math.round(e)} cents off`}}
+  }
+  const lt=D.lastT||(D.lastT={});let o=ts[0];for(const t of ts)if((lt[t[0]]||"")<(lt[o[0]]||""))o=t;
+  return {t:o,why:lt[o[0]]?`practised longest ago, last on ${lt[o[0]]}`:"not practised yet"};
+}
 /* typical minutes per block, measured with tests/timing.js (technique blocks include half of the 0.8 min transfer step); replaced by this phone's own averages as sessions run */
 const BLOCK_MIN={"Finding your voice":0.9,"Warm-up":2.4,"Short warm-up":1.4,"Nasality":2.5,"Clean onsets":2.2,"Registers":1.7,"Vowels":2.8,"Clear tone":2.1,
   "Smooth line":1.7,"Breath and long notes":2.7,"Loose jaw and tongue":1.8,"Sounds with a job":2.3,"Pitch matching":1.8,"Scales":1.8,"Intervals":1.9,"Mixed practice":5.5,
@@ -1730,7 +1770,12 @@ async function session(){
   if(!p||store.get("rangeDate","")!==today())p=await findRange();
   store.set("rangeDate",today());
   const rot=techRotation();
-  const nextTech=async()=>{const t=rot[D.rotT2%rot.length];D.rotT2++;await block(t[1],()=>t[2](p),{sum:t[1]==="Vowels"})};
+  const foc=pickFocus(rot);
+  if(foc)diagEv(`focus: ${foc.t[1]} (${foc.why})`);
+  const techRun=t=>{(D.lastT=D.lastT||{})[t[0]]=today();return block(t[1],()=>t[2](p),{sum:t[1]==="Vowels"})};
+  /* the focus blocks (both technique blocks of round 1) leave D.rotT2 alone, so the rotation carries on as if they had not happened */
+  const nextTech=async f=>{if(f&&foc)return techRun(foc.t);const t=rot[D.rotT2%rot.length];D.rotT2++;await techRun(t)};
+  const sayFocus=n=>speak(`Today's focus: ${foc.t[1].toLowerCase()}. `+(n>1?"You'll do it twice, and it comes first.":"It comes first."));
   const prac=[song,skills],pracN=["Song","Skills"];S.done=done;
   const lim=+store.get("len",0);
   /* The loops run until the time is up (timed) or forever (untimed); a Wind from the Stop button or the singing limit ends them early. Both then wind down the same way. */
@@ -1742,19 +1787,20 @@ async function session(){
       await speak(`This is a ${NUMW[lim]||lim} minute session.`);
       while(true){
         S.round++;
-        const r=D.rotT2,tk=i=>rot[(r+i)%rot.length][1],short=lim<=10,items=[];
+        const r=D.rotT2,fr=!!foc&&S.round===1,tk=i=>fr?foc.t[1]:rot[(r+i)%rot.length][1],short=lim<=10,items=[];
         if(S.round===1)items.push({key:short?"Short warm-up":"Warm-up",pri:2,run:()=>block("Warm-up",()=>warmup(p,short),{sum:false,key:short?"Short warm-up":"Warm-up"})});
-        items.push({key:tk(0),pri:1,run:nextTech});
+        items.push({key:tk(0),pri:1,foc:fr,run:()=>nextTech(fr)});
         if(done>=3&&S.round>=2)items.push({key:"Mixed practice",pri:3,run:()=>block("Mixed practice",()=>mixed(p))});
         else items.push({key:"Pitch matching",pri:3,run:()=>block("Pitch matching",()=>pitchMatch(p,4))},
           {key:"Scales",pri:6,run:()=>block("Scales",()=>scales(p,3))},{key:"Intervals",pri:7,run:()=>block("Intervals",()=>intervals(p,4))});
-        items.push({key:tk(1),pri:4,run:nextTech});
+        items.push({key:tk(1),pri:4,foc:fr,run:()=>nextTech(fr)});
         const pi=D.rotP%prac.length;
         items.push({key:pracN[pi],pri:5,run:async()=>{D.rotP++;await block(pracN[pi],()=>prac[pi](p),{sum:pi===0})}});
         items.push({key:"Free singing",pri:8,run:()=>block("Free singing",()=>freeSing(),{sum:false})});
         const plan=fitRound(items,lim-used()-WRAP,S.round===1);
         if(!plan.length)break;
         diagEv(`round ${S.round} plan: ${plan.map(x=>x.key).join(", ")}`);
+        if(fr)await sayFocus(plan.filter(x=>x.foc).length);
         for(const it of plan){
           if(!(S.round===1&&it.pri<=2)&&used()+estMin(it.key)>lim-WRAP+0.5){diagEv(`left out ${it.key}: out of time`);continue}
           await it.run();
@@ -1762,23 +1808,25 @@ async function session(){
         if(lim-used()-WRAP<3)break;
         await speak("Next round.");
       }
-    }else while(true){
+    }else{
+      if(foc)await sayFocus(2);
+      while(true){
       S.round++;
       if(S.round===1)await block("Warm-up",()=>warmup(p),{sum:false});
-      await nextTech();
+      await nextTech(S.round===1);
       if(done>=3&&S.round>=2)await block("Mixed practice",()=>mixed(p));
       else{
         await block("Pitch matching",()=>pitchMatch(p,4));
         await block("Scales",()=>scales(p,3));
         await block("Intervals",()=>intervals(p,4));
       }
-      await nextTech();
+      await nextTech(S.round===1);
       {const i=D.rotP%prac.length;D.rotP++;await block(pracN[i],()=>prac[i](p),{sum:i===0})}
       await block("Free singing",()=>freeSing(),{sum:false});
       await summary();
       await block("Reset",()=>resetVoice(),{sum:false});
       await speak("Next round.");
-    }
+    }}
   }catch(e){
     if(!(e instanceof Wind))throw e;
     why=e.why;S.frames=null;S.rec=null;S.specMode=null;S.canSkip=false;setSub("");setTarget(null);
@@ -1987,8 +2035,52 @@ async function renderProgress(){
     const dt=new Date(c.t);b.innerHTML=`<span>▶ ${esc(c.label)}</span><small>${dt.toISOString().slice(5,10)} · ${(c.pcm.length/c.sr).toFixed(0)} s</small>`;
     b.onclick=async()=>{if(S.running)return;await ensureCtx();playBuf(c,S.ctx.currentTime+0.05)};cb.append(b)}
 }
-const panels=["progress","guide","settings","diag"];
-const navOf={progress:"progBtn",guide:"guideBtn",settings:"setBtn",diag:"setBtn"};
+/* Check the nasality measure against the ear: takes saved with a score (clip.nas) are played back in random order and rated 1 to 5 (rvc_nasRate = {clip time: rating}); from 8 ratings on, a Spearman correlation says whether the score follows the ear. */
+function ranks(a){const o=a.map((v,i)=>[v,i]).sort((x,y)=>x[0]-y[0]),r=[];for(let i=0;i<o.length;){let j=i;while(j+1<o.length&&o[j+1][0]===o[i][0])j++;for(let k=i;k<=j;k++)r[o[k][1]]=(i+j)/2+1;i=j+1}return r}
+function spearman(a,b){
+  if(a.length<3)return null;const x=ranks(a),y=ranks(b),mx=mean(x),my=mean(y);let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<x.length;i++){sxy+=(x[i]-mx)*(y[i]-my);sxx+=(x[i]-mx)**2;syy+=(y[i]-my)**2}
+  return sxx&&syy?sxy/Math.sqrt(sxx*syy):null;
+}
+const nasVerdict=r=>r>0.6?"The measure agrees with your ear; keep it.":r>=0.3?"It roughly agrees; treat it as a hint.":"It doesn't agree with your ear; it should be dropped.";
+const NASQ=["Very nasal","Quite nasal","In between","Mostly open","Open, not nasal"];
+function nasScatter(pts){
+  const fig=document.createElement("figure");fig.className="chart";
+  const W=320,H=130,L=30,R=12,T=10,B=22,X=v=>L+(W-L-R)*v/100,Y=v=>T+(H-T-B)*(1-(v-1)/4);
+  let g="";for(let v=1;v<=5;v++)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L-6}" y="${Y(v)+3.5}" text-anchor="end" class="tick">${v}</text>`;
+  for(const v of [0,50,100])g+=`<text x="${X(v)}" y="${H-5}" text-anchor="${v===0?"start":v===100?"end":"middle"}" class="tick">${v}</text>`;
+  const dots=pts.map(p=>`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="5" class="pt"><title>Score ${p.x}, your rating ${p.y}</title></circle>`).join("");
+  fig.innerHTML=`<figcaption>Your rating against the score <small>one dot per take; dots rising to the right mean agreement</small></figcaption><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Your rating from 1 to 5 against the coach's score from 0 to 100, one dot per take">${g}${dots}</svg><p class="hint" style="margin-top:6px">Across: the coach's score, 100 = open. Up: your rating, 5 = open.</p>`;
+  return fig;
+}
+let ncCur=null;
+async function renderNasCheck(){
+  const body=$("ncBody");body.innerHTML="";
+  const seen=new Set(),clips=(await idb.all("clips")).filter(c=>typeof c.nas==="number"&&c.pcm&&!seen.has(c.t)&&seen.add(c.t)),rt=store.get("nasRate",{});
+  const rated=clips.filter(c=>rt[c.t]!=null),left=clips.filter(c=>rt[c.t]==null),el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x)e.textContent=x;return e};
+  if(!clips.length){body.append(el("p","hint","No scored takes yet. A take is saved with its score when the coach scores one of your lifted ah sounds in a nasality block. Come back after a few sessions."));return}
+  if(!ncCur||rt[ncCur.t]!=null||!left.some(c=>c.t===ncCur.t))ncCur=left.length?pick(left):null;
+  body.append(el("p","hint",`Rated ${rated.length} of ${clips.length} takes.`));
+  if(ncCur){
+    const play=el("button","btn","▶ Play a take"),q=el("div"),qs=el("p","",""),opts=el("div","clips");
+    play.type="button";q.hidden=true;qs.textContent="How nasal did that sound?";
+    NASQ.forEach((n,i)=>{const b=el("button","btn",n);b.type="button";b.onclick=()=>{rt[ncCur.t]=i+1;store.set("nasRate",rt);ncCur=null;renderNasCheck()};opts.append(b)});
+    q.append(qs,opts);
+    play.onclick=async()=>{if(S.running)return;await ensureCtx();playBuf(ncCur,S.ctx.currentTime+0.05);play.textContent="▶ Play it again";q.hidden=false};
+    body.append(play,q);
+  }else body.append(el("p","hint","You have rated every take there is. More appear as nasality blocks save new ones."));
+  if(rated.length>=8){
+    const r=spearman(rated.map(c=>rt[c.t]),rated.map(c=>c.nas)),box=el("div");box.style.cssText="display:flex;flex-direction:column;gap:10px";
+    box.append(el("h2","","Result"));
+    if(r==null)box.append(el("p","hint","Your ratings, or the scores, are all the same, so there is nothing to compare yet. Rate a few more takes that sound different."));
+    else{box.append(el("p","",`Spearman correlation between your ratings and the score: ${r.toFixed(2)}, over ${rated.length} takes.`),el("p","",nasVerdict(r)))}
+    box.append(nasScatter(rated.map(c=>({x:c.nas,y:rt[c.t]}))));body.append(box);
+  }else body.append(el("p","hint",`The result appears after 8 ratings (${Math.max(0,8-rated.length)} to go).`));
+  if(rated.length){const c=el("button","btn","Clear my ratings");c.type="button";c.onclick=()=>{if(!confirm("Clear all your ratings?"))return;store.set("nasRate",{});ncCur=null;renderNasCheck()};body.append(c)}
+}
+$("ncBtn").onclick=()=>{if(S.running)return;showView("nasCheck");renderNasCheck()};
+const panels=["progress","nasCheck","guide","settings","diag"];
+const navOf={progress:"progBtn",nasCheck:"progBtn",guide:"guideBtn",settings:"setBtn",diag:"setBtn"};
 function markNav(){const open=panels.find(x=>!$(x).hidden),cur=open?navOf[open]:(S.running&&S.mode==="test"?"testBtn":"homeBtn");
   document.querySelectorAll(".links button").forEach(b=>b.id===cur?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"))}
 function showView(id){panels.forEach(x=>$(x).hidden=x!==id);document.querySelector(".wrap").classList.toggle("panel-open",!!id);markNav();window.scrollTo(0,0)}
@@ -2069,7 +2161,7 @@ async function makeBackup(takes){
   const b={app:"road-voice-coach",kind:"backup",v:1,ver:$("ver").textContent.replace("Version ",""),at:new Date().toISOString(),takes,ls,notes:[],clips:[]};
   if(takes){
     for(const [k,v] of await idbEntries("notes"))b.notes.push({key:k,sr:v.sr,p:v.p,err:v.err,pcm:pcmOut(v.pcm)});
-    for(const [,v] of await idbEntries("clips"))b.clips.push({t:v.t,label:v.label,sr:v.sr,pcm:pcmOut(v.pcm),...(v.first?{first:true}:{})});
+    for(const [,v] of await idbEntries("clips"))b.clips.push({t:v.t,label:v.label,sr:v.sr,pcm:pcmOut(v.pcm),...(v.nas!=null?{nas:v.nas}:{}),...(v.first?{first:true}:{})});
   }
   return b;
 }
@@ -2080,7 +2172,7 @@ async function restoreBackup(b){
   if(b.takes){
     await idb.clear("notes");await idb.clear("clips");
     for(const n of b.notes||[])await idb.put("notes",{pcm:pcmIn(n.pcm),sr:n.sr,p:n.p,err:n.err},n.key);
-    for(const c of b.clips||[])await idb.put("clips",{t:c.t,label:c.label,sr:c.sr,pcm:pcmIn(c.pcm),...(c.first?{first:true}:{})});
+    for(const c of b.clips||[])await idb.put("clips",{t:c.t,label:c.label,sr:c.sr,pcm:pcmIn(c.pcm),...(c.nas!=null?{nas:c.nas}:{}),...(c.first?{first:true}:{})});
   }
 }
 function bkMsg(t){const m=$("bkMsg");m.textContent=t;m.hidden=!t}
@@ -2122,6 +2214,7 @@ $("micSel").onchange=e=>store.set("mic",e.target.value);
 $("lenSel").value=String(store.get("len",0));$("lenSel").onchange=e=>{store.set("len",+e.target.value);showLen()};showLen();
 $("sungSel").value=String(sungMax());$("sungSel").onchange=e=>store.set("sungMax",+e.target.value);
 $("goalSel").value=String(goalDays());$("goalSel").onchange=e=>store.set("goal",+e.target.value);
+$("focSel").value=store.get("focus","auto");$("focSel").onchange=e=>store.set("focus",e.target.value);
 $("nasAmt").value=store.get("nasal","normal");$("nasAmt").onchange=e=>store.set("nasal",e.target.value);
 {const box=$("topicBox");
   for(const [k,name] of TECH.slice(1)){const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=k;c.checked=topicOn(k);
