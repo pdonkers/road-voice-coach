@@ -20,8 +20,14 @@ const speed=+(process.argv[2]||6);
     const run=async(n,fn,o)=>{const t0=clock();await block(n,fn,o);out.push([n,+((clock()-t0)/60000).toFixed(2)])};
     {const t0=clock();await findRange();out.push(["Finding your voice",+((clock()-t0)/60000).toFixed(2)])}
     await run("Warm-up",()=>warmup(pr),{sum:false});
-    for(const [n,f] of [["Nasality",nasality],["Clean onsets",onset],["Registers",registers],["Vowels",vowels],["Clear tone",clearTone],["Smooth line",legato],["Breath and long notes",breath],["Loose jaw and tongue",release]])
-      await run(n,()=>f(pr),{sum:n==="Vowels"});
+    // technique blocks without the transfer step (D.xf=0 makes the next block's count odd, so it is skipped); the transfer step is timed on its own below
+    for(const [n,f] of [["Nasality",nasality],["Clean onsets",onset],["Registers",registers],["Vowels",vowels],["Clear tone",clearTone],["Smooth line",legato],["Breath and long notes",breath],["Loose jaw and tongue",release],["Sounds with a job",sounds]])
+      {D.xf=0;await run(n,()=>f(pr),{sum:n==="Vowels"})}
+    // the same blocks later in a session (nasality's first-time text is gone) and with the transfer step (D.xf=1 makes the count even)
+    D.xf=0;await run("Nasality (not first)",()=>nasality(pr),{sum:false,key:"x1"});
+    D.xf=1;await run("Nasality + transfer",()=>nasality(pr),{sum:false,key:"x2"});
+    D.xf=1;await run("Sounds + transfer",()=>sounds(pr),{sum:false,key:"x3"});
+    S.tip.onset=S.tip.onset||tipFor("onset");await run("Transfer step alone",()=>transfer(pr,"onset"),{sum:false,key:"x4"});
     await run("Pitch matching",()=>pitchMatch(pr,4));
     await run("Scales",()=>scales(pr,3));
     await run("Intervals",()=>intervals(pr,4));

@@ -256,7 +256,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.1</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.2</p>
   </div>
 </div>
 
@@ -514,7 +514,7 @@ function analyseHold(frames,target,o={}){
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
-const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[]});
+const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null});
 let D=Object.assign(D0(),store.get("data",{}));
 const saveD=()=>store.set("data",D);
 const idb={db:null,
@@ -752,7 +752,7 @@ function clipOf(take,from,len){
    path = [[seconds, midi], ...] glides between points; vz picks the vowel shape. */
 const VOWF={ah:[[700,110,1],[1150,120,0.6],[2700,180,0.3]],oo:[[320,80,1],[800,100,0.4],[2300,160,0.1]],
   ee:[[290,70,1],[2250,150,0.5],[2950,200,0.3]],eh:[[550,90,1],[1800,140,0.5],[2550,180,0.25]],oh:[[450,90,1],[850,110,0.5],[2500,180,0.12]],
-  hum:[[260,80,1],[1000,220,0.1],[2400,300,0.04]],ng:[[280,90,1],[1100,250,0.07],[2500,300,0.05]]};
+  uh:[[600,100,1],[1250,120,0.6],[2500,180,0.3]],hum:[[260,80,1],[1000,220,0.1],[2400,300,0.04]],ng:[[280,90,1],[1100,250,0.07],[2500,300,0.05]]};
 function noiseSrc(t,d){
   const c=S.ctx;
   if(!S.nz||S.nz.sampleRate!==c.sampleRate){const b=c.createBuffer(1,c.sampleRate*2,c.sampleRate),x=b.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=Math.random()*2-1;S.nz=b}
@@ -789,6 +789,11 @@ const DEMO={
   trill(p){return this.run(3.4,t=>synth(t,3.4,{path:[[0,p.home-4],[1.5,p.home+6],[3.2,p.home-4]],vz:"hum",flutter:24,vol:0.95}))},
   siren(p){return this.run(3.6,t=>synth(t,3.6,{path:[[0,p.home-5],[1.7,p.home+9],[3.4,p.home-5]],vz:"oo"}))},
   ngah(notes){return this.run(notes.length*1.5,t=>notes.forEach((m,i)=>{const a=t+i*1.5;synth(a,0.62,{path:[[0,m]],vz:"ng",vol:0.8});synth(a+0.52,0.8,{path:[[0,m]]});setTimeout(()=>{if(!S.stop)setTarget(m)},i*1500/SPEED)}))},
+  /* "hung": a short uh, the N G held, then the jaw drops open to ah */
+  hung(notes){return this.run(notes.length*1.9,t=>notes.forEach((m,i)=>{const a=t+i*1.9;synth(a,0.32,{path:[[0,m]],vz:"uh",vol:0.8});synth(a+0.27,0.7,{path:[[0,m]],vz:"ng",vol:0.8});synth(a+0.9,0.9,{path:[[0,m]]});setTimeout(()=>{if(!S.stop)setTarget(m)},i*1900/SPEED)}))},
+  uhah(m){return this.run(2.4,t=>{synth(t,1.0,{path:[[0,m]],vz:"uh",vol:0.8});synth(t+0.9,1.3,{path:[[0,m]]});setTarget(m)})},
+  /* the dopey cartoon-bear uh-ah, sagging a little in pitch */
+  yogi(m){return this.run(2.2,t=>{synth(t,0.85,{path:[[0,m],[0.8,m-1]],vz:"uh",vol:0.85});synth(t+0.75,1.3,{path:[[0,m-1],[1.2,m-2]]});setTarget(m)})},
   staccato(m){return this.run(5*0.42,t=>{for(let i=0;i<5;i++)tone(m,t+i*0.42,0.22);setTarget(m)})},
   swell(m){return this.run(4,t=>{synth(t,4,{path:[[0,m]],swell:true});setTarget(m)})},
   breathy(m){return this.run(1.6,t=>{synth(t,1.6,{path:[[0,m]],vol:0.3,breath:0.55});setTarget(m)})},
@@ -1031,7 +1036,7 @@ async function rep(targets,o={}){
     a=o.hold?analyseHold(f,targets[0],o):analyseSeq(f,targets,o,S);
     let lvMsg="";
     if(a.heard){
-      if(!o.quiet&&!o.swell){S.scores.push(a.avg);S.biases.push(a.bias);if(S.blk)S.blk.reps.push({avg:a.avg,bias:a.bias,take})}
+      if(!o.quiet&&!o.swell&&!o.noScore){S.scores.push(a.avg);S.biases.push(a.bias);if(S.blk)S.blk.reps.push({avg:a.avg,bias:a.bias,take})}
       if(o.kind){const ch=result(o.kind,a.success);if(ch==="up")lvMsg="Stepping up a level.";if(ch==="down")lvMsg="I'll make this one a bit easier."}
       if(o.vowel){const v=D.vow[o.vowel]=D.vow[o.vowel]||{n:0,sum:0,abs:0};v.n++;v.sum+=a.bias;v.abs+=a.avg}
       if(o.longest){S.hold=Math.max(S.hold||0,a.dur);const prev=D.best.hold||0;
@@ -1065,7 +1070,7 @@ async function rep(targets,o={}){
 
 /* ---------- blocks ---------- */
 /* ---------- cues: several per topic, rotated across sessions so the singer can find which ones stick ---------- */
-const TOPICS={nasal:"Nasality",pitch:"Pitch",breath:"Breath",onset:"Clean onsets",reg:"Registers",tone:"Clear tone",legato:"Smooth line",release:"Loose jaw and tongue",posture:"Posture"};
+const TOPICS={nasal:"Nasality",job:"Sounds with a job",pitch:"Pitch",breath:"Breath",onset:"Clean onsets",reg:"Registers",tone:"Clear tone",legato:"Smooth line",release:"Loose jaw and tongue",posture:"Posture"};
 const TIPS={
   nasal:[
     {id:"n-gasp",name:"Silent gasp",say:"Take a small silent gasp, as if pleasantly surprised. Feel the back of your mouth lift. Keep that lift and sing ah.",short:"Small gasp, keep the lift, sing ah."},
@@ -1077,7 +1082,17 @@ const TIPS={
     {id:"n-laugh",name:"Silent laugh",say:"Think of a silent laugh, the lift at the back of your throat just before you laugh out loud. Keep it and sing ah.",short:"Silent laugh, keep the lift, sing ah."},
     {id:"n-sneeze",name:"Before a sneeze",say:"Imitate the moment just before a sneeze. Feel the lift behind your nose. Keep it and sing ah.",short:"The moment before a sneeze, then sing ah."},
     {id:"n-aim",name:"Aim at the windscreen",say:"Send the whole sound forward out of your mouth, at the windscreen. Nothing goes up into your nose. Sing ah.",short:"All the sound out of your mouth, at the windscreen. Sing ah."},
-    {id:"n-brows",name:"Eyebrows and nostrils",say:"Raise the outer ends of your eyebrows a little and flare your nostrils. That lifts the soft palate with them. Keep it and sing ah.",short:"Eyebrows up, nostrils wide, sing ah."}],
+    {id:"n-brows",name:"Eyebrows and nostrils",say:"Raise the outer ends of your eyebrows a little and flare your nostrils. That lifts the soft palate with them. Keep it and sing ah.",short:"Eyebrows up, nostrils wide, sing ah."},
+    {id:"n-hung",name:"Hung, then open",say:"Say hung and hold the N G for a moment. Then drop your jaw and open it to ah, and keep the ah out of your nose.",short:"Hold the N G, drop the jaw, open to ah."},
+    {id:"n-uhah",name:"Dark uh to ah",say:"Start on a dark, relaxed uh. Then drop your jaw into ah without letting the sound move into your nose.",short:"Dark uh, drop the jaw, open to ah."},
+    {id:"n-puff",name:"Puffed cheeks",say:"Puff your cheeks out a little and feel any air trying to leak into your nose. Stop it with a lift at the back of your mouth, then sing ah.",short:"Feel the air, lift the back, sing ah."},
+    {id:"n-kin",name:"In-breath on a K",say:"Breathe in on a silent K, as if starting the word cat. Feel the back of your mouth lift. Keep that space and sing ah.",short:"Silent K in-breath, keep the space, sing ah."},
+    {id:"n-yogi",name:"Dopey Yogi Bear",say:"Make a dark, dopey, Yogi Bear uh-ah and feel the back of your mouth open wide. Keep that open space and sing ah normally.",short:"Dopey Yogi Bear space, then sing ah."}],
+  job:[
+    {id:"j-ng",name:"Ng for the tongue",syl:"ng",vz:"ng",job:"a relaxed tongue and a forward sound",say:"Ng, like the end of the word sing. Its job is a relaxed tongue and a forward sound. Keep the tongue loose and feel the buzz at the front of your face.",short:"Ng: loose tongue, sound at the front."},
+    {id:"j-gee",name:"Gee for brightness",syl:"gee",vz:"ee",job:"a loose tongue and a bright, easy tone",say:"Gee, like the letter G. Its job is a loose tongue and a bright, easy tone. Keep the tip of the tongue resting behind your lower front teeth.",short:"Gee: tongue down, bright and easy."},
+    {id:"j-mum",name:"Mum with a yawn",syl:"mum",vz:"hum",job:"a low, relaxed larynx",say:"Mum, with a slight yawn, as if you were about to yawn. Its job is a low, relaxed larynx. Let the sound be easy and a little dark.",short:"Mum with a slight yawn: low and relaxed."},
+    {id:"j-no",name:"A sad no",syl:"no",vz:"oh",job:"a voice that does not flip at the break",say:"A sad, droopy no, as if you were disappointed. Its job is to stop the voice flipping at the break: the sad sound keeps it steady and a little heavy.",short:"A sad no: steady through the break."}],
   pitch:[
     {id:"p-hear",name:"Hear it first",say:"Hear the note in your head before you sing it."},
     {id:"p-hum",name:"Hum, then open",say:"Hum the note quietly first, then open it to ah."},
@@ -1126,7 +1141,8 @@ const WHY={
   reg:"Your voice has a lower, heavier gear and a higher, lighter one. Where they meet it can flip or crack, like a small yodel. That is normal. Sliding through the join, gently, is how you smooth it.",
   tone:"A breathy tone leaks air, so it is quiet and tires you quickly. A clear tone turns the same air into more sound.",
   legato:"A smooth line is what makes singing sound like singing, and not like separate notes. The sound never stops while the pitch changes.",
-  release:"A tight jaw or tongue muffles your vowels and makes higher notes harder. Loose is better than precise here."};
+  release:"A tight jaw or tongue muffles your vowels and makes higher notes harder. Loose is better than precise here.",
+  job:"Each of these sounds has one job. The consonant sets your tongue, jaw and larynx for you, so you don't have to think about them. I can only play the vowel part, so sing the whole sound yourself."};
 const why=k=>{D.why=D.why||{};const n=D.why[k]||0;D.why[k]=n+1;return n<3?WHY[k]+" ":""};
 const tipStat=id=>D.tips[id]||(D.tips[id]={n:0});
 function tipFor(topic){
@@ -1178,8 +1194,43 @@ const PHR=[
   {w:"Blue sky, bright day",n:[2,6,9,6],d:[0.8,0.8,0.8,1.2]},
   {w:"Take the high road",n:[2,4,6,2],d:[0.7,0.7,0.9,1.2]},
   {w:"Wide water, quiet sea",n:[2,4,6,7,6,2],d:[0.7,0.5,0.5,0.5,0.5,1.2]}];
+/* Extra nasality exercises from teachers. A block uses one or two, taking the next ones in turn (D.nx), so the
+   contrast pair stays and the block does not get longer. lift(m,credit) sings a lifted ah and scores it. */
+const NASX=[
+  async(n,first)=>{
+    await speak(first?"Sing-ah. On each note sing the word sing, hold the N G for a moment, then open to ah. The N G goes through the nose. The ah should not. It sounds like this, three times.":"Sing-ah on each note: hold the N G, then open to ah.");
+    await rep([n,n+2,n+4],{dur:1.4,gap:0.1,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,modelFn:()=>DEMO.ngah([n,n+2,n+4])});
+  },
+  async n=>{
+    await speak("Hung. Say the word hung and hold the N G, with your tongue against the roof of your mouth. Then drop your jaw and open to ah. The N G goes through the nose, the ah must not. It sounds like this.");
+    await rep([n,n+2],{dur:1.4,gap:0.1,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,modelFn:()=>DEMO.hung([n,n+2])});
+  },
+  async n=>{
+    await speak("Uh to ah. Start on a dark, relaxed uh, like a sleepy answer. Then drop your jaw into ah without letting the sound go into your nose. Like this.");
+    await rep([n],{dur:2.2,hold:true,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,need:2,maxListen:9000,modelFn:()=>DEMO.uhah(n)});
+  },
+  async n=>{
+    await speak("Puffed cheeks. Puff your cheeks out and sing one short ah on this note. If the back of your mouth hangs low, you feel the air leak into your nose. This one is for feel, so I won't score it.");
+    const P=await plainTake(n,1.0);
+    await speak("Now the same note with your cheeks relaxed. Keep the back of your mouth lifted.");
+    const R=await plainTake(n,1.0);
+    if(P&&R){await speak("Listen back. Puffed, then relaxed.");await playTake(P);await sleep(300);await playTake(R)}
+    else await speak("I didn't hear both of those, so there's nothing to play back.");
+  },
+  async(n,first,lift)=>{
+    await speak("Slow-motion gasp. Breathe in silently, as if you were surprised, or on a silent K. Feel the back of your mouth lift. Now sing ah on this note and keep that space.");
+    await lift(n,false);
+  },
+  async(n,first,lift)=>{
+    await speak("Yogi Bear. Make a dark, dopey, oversized uh-ah, like the cartoon bear. Feel the back of your mouth open wide. Like this.");
+    await DEMO.yogi(n);
+    await speak("Now you, as dopey as you dare.");
+    await feel();
+    await speak("Now the same open space, sung normally on ah.");
+    await lift(n,false);
+  }];
 async function nasality(p){
-  const n=p.home,first=!S.nasDone,tip=tipFor("nasal");S.nasDone=true;
+  const n=p.home,first=!S.nasDone,tip=tipFor("nasal"),xf=xferNow();S.nasDone=true;
   await speak(first?`Nasality work. ${why("nasal")}First the contrast. Sing this note on ah, as nasal as you can, like a whiny cartoon voice.`:"Nasality. The nasal version first: ah, as nasal as you can.");
   const N=await ahTake(n);
   await speak(first?`Now the opposite. Today's cue: ${tip.say}`:`Now lifted. ${tip.short}`);
@@ -1190,20 +1241,24 @@ async function nasality(p){
   }
   if(N.np!=null&&L.np!=null&&L.np-N.np>=3){S.nas={n:N.np,l:L.np};if(first)await speak("My rough measure hears the difference too, so I'll use it on the next ones.")}
   else{S.nas=null;if(first)await speak("My measure can't separate those two over the road noise, so go by your ears on the replays.")}
-  for(const m of first?[n,n+2]:[n+2]){
-    await speak(tip.short);
+  /* a lifted ah; only the day's own cue earns credit in its statistics */
+  const lift=async(m,credit=true)=>{
     const T=await ahTake(m);
-    if(!T.take){await speak("I didn't hear that one.");continue}
+    if(!T.take){await speak("I didn't hear that one.");return}
     let msg="";
-    if(S.nas&&T.np!=null){const sc=clamp((T.np-S.nas.n)/(S.nas.l-S.nas.n),0,1);S.nasScores.push(sc);const st=tipStat(tip.id);st.sc=(st.sc||0)+sc;st.scn=(st.scn||0)+1;
+    if(S.nas&&T.np!=null){const sc=clamp((T.np-S.nas.n)/(S.nas.l-S.nas.n),0,1);S.nasScores.push(sc);if(credit){const st=tipStat(tip.id);st.sc=(st.sc||0)+sc;st.scn=(st.scn||0)+1}
       msg=sc>=0.65?"By my rough measure that was on the open side. ":sc<=0.35?"By my rough measure that drifted towards the nasal sound. ":"By my rough measure that was in between. "}
     await speak(msg+"Listen.");await playTake(T.take);
+  };
+  for(const m of first?[n,n+2]:[n+2]){await speak(tip.short);await lift(m)}
+  const nx=first?1:2,k=D.nx;D.nx=k+nx;
+  for(let i=0;i<nx;i++)await NASX[(k+i)%NASX.length](n,first,lift);
+  if(xf)await transfer(p,"nasal");
+  else{
+    const ph=PHR[D.phr%PHR.length];D.phr++;
+    await speak(`Last one. Sing these words on this tune: ${ph.w}.`+(first?" There is no M, N or N G in them, so nothing should come through the nose.":""));
+    await rep(ph.n.map(x=>n-2+x),{durs:ph.d,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,words:true});
   }
-  await speak(first?"Now sing-ah. On each note sing the word sing, hold the N G for a moment, then open to ah. The N G goes through the nose. The ah should not. It sounds like this, three times.":"Sing-ah on each note: hold the N G, then open to ah.");
-  await rep([n,n+2,n+4],{dur:1.4,gap:0.1,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,modelFn:()=>DEMO.ngah([n,n+2,n+4])});
-  const ph=PHR[D.phr%PHR.length];D.phr++;
-  await speak(`Last one. Sing these words on this tune: ${ph.w}.`+(first?" There is no M, N or N G in them, so nothing should come through the nose.":""));
-  await rep(ph.n.map(x=>n-2+x),{durs:ph.d,quiet:true,replay:"always",replayTarget:false,noRetry:true,own:false,words:true});
 }
 async function pitchMatch(p,n){
   if(!D.seen.pm)await speak("Pitch matching. I give you a note, you sing it back on ah.");
@@ -1247,6 +1302,7 @@ async function vowels(p){
   const d=DIC[D.dic%DIC.length];D.dic++;
   await speak(`Diction. Sing the word ${d[0]} on this note, for about three seconds. ${d[1]}`);
   await rep([p.home],{dur:1.5,hold:true,quiet:true,replay:"always",replayTarget:false,noRetry:true,maxListen:11000,own:false,words:true});
+  if(xferNow())await transfer(p,null,"ah","the vowel shape you just practised");
 }
 async function breath(p){
   const first=!S.breathSaid;S.breathSaid=true;
@@ -1263,6 +1319,7 @@ async function breath(p){
   await speak("Now one long note on ah. Hold it steady for as long as is comfortable.");
   await rep([p.home],{dur:1.5,hold:true,maxListen:35000,endSil:1400,always:true,noRetry:true,need:4,longest:true,own:false});
   for(let i=0;i<2;i++){const g=genLt(p,S.ltI++);await rep(g.t,g.o)}
+  if(xferNow())await transfer(p,"breath");
 }
 async function rhythm(){
   await speak("Rhythm. I'll give you four clicks. Then sing eight short, separate ta's at the same speed, on any note.");
@@ -1286,11 +1343,8 @@ async function starts(p){
   for(const r of [lo,lo+2,lo+3])await rep([0,4,7,4,0].map(x=>r+x),{dur:0.45,gap:0.25,scoopFocus:true,always:true,noRetry:true,own:false});
 }
 const skills=p=>[swell,starts][D.sk++%2](p);
-async function plainTake(m,dur=1.2){
-  await play([m],dur);setSub("your turn");
-  await listen({max:10000,wait:6000,count:false});setSub("");
-  return S.lastTake;
-}
+async function feel(){setSub("your turn");await listen({max:10000,wait:6000,count:false});setSub("");return S.lastTake}
+async function plainTake(m,dur=1.2){await play([m],dur);return feel()}
 async function onset(p){
   const tip=tipFor("onset"),m=p.home;
   await speak(`Clean onsets. ${why("onset")}A breathy start has an H in front of it, like this.`);
@@ -1307,6 +1361,7 @@ async function onset(p){
     else await speak("I didn't hear that one.");
   }
   await rep([m],{dur:1.5,hold:true,intro:"Now one long note, with that same clean start.",always:true,own:false,need:2.5});
+  if(xferNow())await transfer(p,"onset");
 }
 async function registers(p){
   const tip=tipFor("reg");
@@ -1323,6 +1378,7 @@ async function registers(p){
     else await speak(`Smooth from ${spoken(b.lo)} to ${spoken(b.hi)}, no flip.`);
     if(k===0&&S.lastTake){await speak("Listen.");await playTake(S.lastTake)}
   }
+  if(xferNow())await transfer(p,"reg");
 }
 async function clearTone(p){
   const tip=tipFor("tone"),m=p.home;
@@ -1342,6 +1398,7 @@ async function clearTone(p){
     const T=await plainTake(n);
     if(T){await speak("Listen.");await playTake(T)}else await speak("I didn't hear that one.");
   }
+  if(xferNow())await transfer(p,"tone");
 }
 async function legato(p){
   const tip=tipFor("legato"),r=p.home-2;
@@ -1361,6 +1418,7 @@ async function legato(p){
     await speak(lg.gaps===0?"One unbroken line.":lg.gaps<=2?`Nearly. I heard ${lg.gaps===1?"one small break":"two small breaks"} between the notes.`:"It came out in separate pieces. Keep the sound going while the pitch changes.");
     if(lg.gaps>2&&S.lastTake){await speak("Listen.");await playTake(S.lastTake)}
   }
+  if(xferNow())await transfer(p,"legato");
 }
 async function release(p){
   const tip=tipFor("release"),t=[0,2,4,2,0].map(x=>p.home-2+x);
@@ -1370,6 +1428,7 @@ async function release(p){
   await speak("Now normally, with a loose jaw. Same notes.");
   await rep(t,{dur:0.7,own:false});
   await speak("Notice whether the second one felt easier. That is the feeling to keep.");
+  if(xferNow())await transfer(p,"release");
 }
 const SONGS=[
   {name:"Twinkle, twinkle, little star",beat:0.5,ph:[
@@ -1387,9 +1446,53 @@ const SONGS=[
     {n:[-5,0,4,0,4,2,7],d:[1,2,0.5,0.5,2,1,3],w:"That saved a wretch like me"},
     {n:[4,7,4,0,-5,-3,0,-5],d:[1,2,1,2,1,2,1,2],w:"I once was lost, but now am found"},
     {n:[-5,0,4,0,4,2,0],d:[1,2,0.5,0.5,2,1,3],w:"Was blind, but now I see"}]}];
+/* Sounds with a job: a syllable whose consonant sets one thing (tongue, tone, larynx, the break), sung on a short pattern,
+   then the half-step climb. The synth has no consonants, so the model uses the closest vowel shape and the coach names the sound.
+   tipFor("job") rotates the four sounds; the pattern changes every fourth block. The climb starts near the bottom of the range
+   and stops after two bad misses in a row, near the top of the range, or after 8 steps. */
+const JOBPATS=[[0,2,4,5,7,5,4,2,0],[0,4,7,4,0]];
+async function sounds(p){
+  const tip=tipFor("job"),pat=JOBPATS[(D.sj++>>2)%2],top=Math.max(...pat),what=pat.length>5?"the five-note scale up and back down":"one, three, five, three, one";
+  const s0=Math.max(p.low,Math.min(p.low+2,p.high-1-top-3)),steps=clamp(p.high-1-top-s0+1,2,8),notes=r=>pat.map(x=>r+x),o={dur:0.4,gap:0.05,own:false,noRetry:true,noScore:true,vz:tip.vz};
+  await speak(`Sounds with a job. ${why("job")}Today's sound: ${tip.say} A singer sings it on ${what}. It sounds like this, without the consonants.`);
+  await play(notes(s0+3),o.dur,o.gap,tip.vz);
+  await speak("Now the climb. The same sound on the same notes, starting low. After each one I go up a half step. We stop when it gets hard.");
+  let best=null,bad=0,n=0;
+  for(;n<steps;n++){
+    if(n)await speak("Up a half step.");
+    const a=await rep(notes(s0+n),o);
+    if(a&&a.heard&&a.success)best=s0+n+top;
+    bad=!a||!a.heard||a.avg>=60?bad+1:0;
+    if(bad>=2){await speak("That's the top for today.");break}
+  }
+  if(n>=steps)await speak("That's as high as I'll take you today.");
+  if(best==null)await speak("I didn't hear a clean step this time, so there's no climb to report.");
+  else{
+    const c=D.climb,d=c?best-c.last:0;
+    await speak(`You climbed to ${spoken(best)} today.`+(!c?" I'll compare it with this next time.":d>0?` That's ${numWord(d)} half step${d>1?"s":""} higher than last time.`:d===0?" The same as last time.":` Last time you reached ${spoken(c.last)}. It varies with the day.`)+(c&&best>c.best?" A new best.":""));
+    D.climb={last:best,best:Math.max(best,c?c.best:0)};
+  }
+  if(xferNow())await transfer(p,"job","mum",`the job of today's sound: ${tip.job}`);
+}
+/* the key a song is sung in: centred just above the comfortable note, kept inside the range */
+function songTon(s,p){
+  const all=s.ph.flatMap(x=>x.n),mn=Math.min(...all),mx=Math.max(...all);
+  return clamp(Math.round(p.home+2-(mn+mx)/2),p.low+1-mn,Math.max(p.low+1-mn,p.high-1-mx));
+}
+/* Carry-over to music: about every second technique block ends with one line of a song, first on a plain syllable
+   with the block's cue, then with the words. The second term shifts the pattern every 8 blocks, so a topic that
+   always lands on the same beat (nasality when set to "more") still gets it about half the time. */
+const xferNow=()=>{const k=D.xf=(D.xf||0)+1;return (k+(k>>3))%2===0};
+async function transfer(p,topic,syl="ah",say=""){
+  const all=SONGS.flatMap(s=>s.ph.map(ph=>[s,ph])),[s,ph]=all[(D.xp||0)%all.length];D.xp=(D.xp||0)+1;
+  const ton=songTon(s,p),t=ph.n.map(x=>ton+x),durs=ph.d.map(x=>x*s.beat),tip=S.tip[topic],cue=say||(tip?`today's cue, ${tip.name}`:"the same feeling");
+  await speak(`Now take that into a song. One line of ${s.name}, first on ${syl}, keeping ${cue}.`);
+  await rep(t,{durs,own:false,noRetry:true});
+  await speak(`Now the same line with the words: ${ph.w}.`);
+  await rep(t,{durs,own:false,noRetry:true,words:true});
+}
 async function song(p){
-  const s=SONGS[D.song.s%SONGS.length],all=s.ph.flatMap(x=>x.n),mn=Math.min(...all),mx=Math.max(...all);
-  const ton=clamp(Math.round(p.home+2-(mn+mx)/2),p.low+1-mn,Math.max(p.low+1-mn,p.high-1-mx));
+  const s=SONGS[D.song.s%SONGS.length],ton=songTon(s,p);
   await speak(D.song.ph===0?`Song practice: ${s.name}. Phrase by phrase, first on la, then with the words.`:`Back to ${s.name}.`);
   for(let k=0;k<2&&D.song.ph<s.ph.length;k++){
     const ph=s.ph[D.song.ph],t=ph.n.map(x=>ton+x),durs=ph.d.map(x=>x*s.beat);
@@ -1527,11 +1630,15 @@ $("diagClear").onclick=()=>{if(S.running||!confirm("Clear the diagnostics log?")
 
 /* ---------- session plan: length and focus ---------- */
 const TECH=[["nasality","Nasality",nasality],["onset","Clean onsets",onset],["registers","Registers",registers],["vowels","Vowels",vowels],["clear","Clear tone",clearTone],
-  ["legato","Smooth line",legato],["breath","Breath and long notes",breath],["release","Loose jaw and tongue",release]];
+  ["legato","Smooth line",legato],["breath","Breath and long notes",breath],["release","Loose jaw and tongue",release],["sounds","Sounds with a job",sounds]];
 /* The technique rotation from the settings. Nasality copies are spread evenly between the other topics;
    with the default settings this is the original nine-slot rotation, so D.rotT2 carries on where it was. */
+/* A saved list of topics only speaks for the topics that existed when it was saved (topicsOf; lists saved before
+   "sounds" was added knew the first seven), so a newer topic joins the rotation until it is unticked in Settings. */
+const OLD_TOPICS=["onset","registers","vowels","clear","legato","breath","release"];
+const topicOn=k=>{const on=store.get("topics",null);return !on||on.includes(k)||!store.get("topicsOf",OLD_TOPICS).includes(k)};
 function techRotation(){
-  const on=store.get("topics",null),nas=TECH[0],others=TECH.slice(1).filter(t=>!on||on.includes(t[0])),n=others.length;
+  const nas=TECH[0],others=TECH.slice(1).filter(t=>topicOn(t[0])),n=others.length;
   const c={off:0,less:1,normal:2,more:Math.max(1,n)}[store.get("nasal","normal")];
   const k=c==null?2:c;
   if(!n)return k?[nas]:TECH.slice(1);
@@ -1539,9 +1646,9 @@ function techRotation(){
   others.forEach((t,i)=>{for(let j=0;j<k;j++)if(Math.min(n-1,Math.floor(j*n/k+0.5))===i)rot.push(nas);rot.push(t)});
   return rot;
 }
-/* typical minutes per block, measured with tests/timing.js; replaced by this phone's own averages as sessions run */
-const BLOCK_MIN={"Finding your voice":0.9,"Warm-up":2.4,"Short warm-up":1.4,"Nasality":2.4,"Clean onsets":1.8,"Registers":1.3,"Vowels":2.4,"Clear tone":1.7,
-  "Smooth line":1.3,"Breath and long notes":2.3,"Loose jaw and tongue":1.4,"Pitch matching":1.8,"Scales":1.8,"Intervals":1.9,"Mixed practice":5.5,
+/* typical minutes per block, measured with tests/timing.js (technique blocks include half of the 0.8 min transfer step); replaced by this phone's own averages as sessions run */
+const BLOCK_MIN={"Finding your voice":0.9,"Warm-up":2.4,"Short warm-up":1.4,"Nasality":2.5,"Clean onsets":2.2,"Registers":1.7,"Vowels":2.8,"Clear tone":2.1,
+  "Smooth line":1.7,"Breath and long notes":2.7,"Loose jaw and tongue":1.8,"Sounds with a job":2.3,"Pitch matching":1.8,"Scales":1.8,"Intervals":1.9,"Mixed practice":5.5,
   "Song":2.5,"Skills":1.5,"Free singing":1.2,"Reset":0.4,"Cool-down":0.7};
 const estMin=k=>(D.bmin&&D.bmin[k])||BLOCK_MIN[k]||2;
 function learnMin(k,m){
@@ -1936,9 +2043,9 @@ $("micSel").onchange=e=>store.set("mic",e.target.value);
 $("lenSel").value=String(store.get("len",0));$("lenSel").onchange=e=>{store.set("len",+e.target.value);showLen()};showLen();
 $("goalSel").value=String(goalDays());$("goalSel").onchange=e=>store.set("goal",+e.target.value);
 $("nasAmt").value=store.get("nasal","normal");$("nasAmt").onchange=e=>store.set("nasal",e.target.value);
-{const box=$("topicBox"),on=store.get("topics",null);
-  for(const [k,name] of TECH.slice(1)){const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=k;c.checked=!on||on.includes(k);
-    c.onchange=()=>{const v=[...box.querySelectorAll("input:checked")].map(x=>x.value);store.set("topics",v.length===TECH.length-1?null:v)};l.append(c,name);box.append(l)}}
+{const box=$("topicBox");
+  for(const [k,name] of TECH.slice(1)){const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=k;c.checked=topicOn(k);
+    c.onchange=()=>{const v=[...box.querySelectorAll("input:checked")].map(x=>x.value);store.set("topics",v.length===TECH.length-1?null:v);store.set("topicsOf",TECH.slice(1).map(t=>t[0]))};l.append(c,name);box.append(l)}}
 $("voiceSel").onchange=e=>{store.set("voice",e.target.value);loadVoices()};
 $("nsSel").value=store.get("ns","0");$("nsSel").onchange=e=>store.set("ns",e.target.value);
 $("fbSel").value=store.get("fb","auto");$("fbSel").onchange=e=>store.set("fb",e.target.value);
