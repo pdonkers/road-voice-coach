@@ -6,7 +6,7 @@ What a session contains:
 
 - Warm-up, then a nasality block (nasal versus lifted "ah", "sing-ah", phrases without M, N or NG) with playback of your takes.
 - Pitch matching, scales and intervals. Difficulty adjusts itself to keep you near 70% success.
-- Rotating blocks: vowels and diction, breath and long notes, skills (rhythm, dynamics, clean starts) and song practice with public-domain songs.
+- Two technique blocks per round, rotating through nasality, onsets, registers, vowels, clear tone, smooth line, breath and loose jaw; then song practice or skills (dynamics, clean starts).
 - Free singing, a summary, and a short voice reset between rounds.
 
 How it gives feedback:
