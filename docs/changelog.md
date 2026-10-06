@@ -4,6 +4,17 @@ Companion to [research.md](research.md) (research and build notes). Newest first
 
 The assessment and prioritized backlog are in [BACKLOG.md](../BACKLOG.md). The working copy is the Claude Doc "Road Voice Coach: assessment and backlog" (https://claude.ai/code/artifact/48816687-019b-4b0f-85eb-14495b2ef7ce, private to Paul). When a backlog item is built, update the status in the doc and re-export it to `BACKLOG.md`, replacing the byline line.
 
+## 6 Oct 2026 (version label 2026-10-06.4): session length, focus, backup
+
+Changes:
+- Settings, "Session length": until Stop (as before, the default), or about 5, 10, 20 or 30 minutes. A timed session plans each round from block estimates: the warm-up and the first technique block always run in round 1, then pitch matching, the second technique block, song or skills, scales, intervals and free singing as time allows. It ends with the summary, a 25-second cool-down (gentle hums sliding down) and "That's the end of today's session". Sessions of 10 minutes or less use a short warm-up (15 s of lip trills, one hum pattern). The home screen says which length is set.
+- Block estimates start from `tests/timing.js` (speech stubbed at 70 ms a character): technique blocks 1.3 to 2.4 min, warm-up 2.4, pitch blocks about 1.8, mixed practice 5.5. The phone then learns its own (`D.bmin`, a running average; paused time left out), and the diagnostics log shows how long each block took and each round's plan.
+- Settings, "Nasality work": more (every other technique block), normal (twice per rotation, the old rotation exactly, so `D.rotT2` carries on), less (once), off. Checkboxes choose the other technique topics in the rotation.
+- Settings, "Backup": Save backup downloads one JSON file with all `rvc_*` settings and progress and, optionally, the saved takes and own-voice model notes (16-bit samples, base64). Restore from backup replaces everything on the phone after a confirmation, then reloads. The date of the last backup is shown.
+- New tests: `timing.js`, `length.js`, `backup.js`.
+
+Tested in headless Chromium only: a 5-minute session ended by itself after about 5.5 minutes (short warm-up, one technique block, cool-down); a 20-minute session ran a full first round (eight blocks) and a short second one, then the cool-down; the rotation for every nasality setting and topic choice; a backup with a take and a model note restored onto a cleared browser with identical data; a non-backup file is refused; `blocks.js` passes. Not yet run on the phone. Real block lengths depend on how fast the phone speaks, so the first timed sessions may run a minute or two long until the phone has learned its own block lengths.
+
 ## 6 Oct 2026 (version label 2026-10-06.3): listening diagnostics
 
 The first backlog item: so the next drive gives data and not only a description, the app now logs every take.

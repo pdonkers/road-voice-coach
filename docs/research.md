@@ -2,7 +2,7 @@
 
 App: https://pdonkers.github.io/road-voice-coach/ (repo pdonkers/road-voice-coach, GitHub Pages from main). Installed on Paul's Android phone as a web app; used in a Volvo over the car speakers with the phone's microphone.
 
-Status (6 Oct 2026, version label 2026-10-06.3): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
+Status (6 Oct 2026, version label 2026-10-06.4): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
 
 Fixed requirements from Paul: press Start once and never touch the screen again; spoken feedback; English coach; beginner with auto-detected range; exercises plus free singing. He sings nasally (true nasality, confirmed with the nose-pinch test, so the app does not test for it) and reducing that is a main goal. He is not interested in rhythm practice.
 
@@ -24,6 +24,9 @@ Fixed requirements from Paul: press Start once and never touch the screen again;
 - Own-voice note bank: in-tune takes are stored (IndexedDB) and reused as the model note. Saved clips: up to 20.
 - Listening: microphone with echo cancellation and gain control off; input filter of four cascaded 340 Hz high-passes plus a 3.2 kHz low-pass, so pitch is read from harmonics above the road rumble; YIN pitch detection; takes are timed on the audio clock, and sound above 2.2x the noise floor keeps a take open.
 - Background running: pitch analysis and all waits are driven by incoming microphone audio (AudioWorklet messages), not page timers; a silent audio loop plays during sessions. Mic cut-off detection (digital silence 4 s, track mute/ended, or audio blocks stopping) triggers a spoken alert; the end-of-session message reports muted/suspended seconds and failed coach utterances.
+- Session length (setting `len`, minutes; 0 = until Stop): a timed session plans each round with `fitRound` from block estimates (`BLOCK_MIN`, then the phone's own averages in `D.bmin`), keeps 1.2 min for the summary and cool-down, and ends with `coolDown()`. Priority: technique 1 and warm-up (always in round 1), pitch matching (or mixed practice), technique 2, song or skills, scales, intervals, free singing.
+- Focus: `techRotation()` builds the technique rotation from the settings `nasal` (more, normal, less, off) and `topics` (the other topics chosen; null = all). Normal with all topics is the original nine-slot rotation.
+- Backup (Settings): one JSON file with every `rvc_*` localStorage key and, optionally, the IndexedDB notes and clips as 16-bit base64 PCM; restoring replaces the phone's data and reloads.
 - Delayed start: "Start in N min" opens the mic at the press and counts down; Skip starts at once.
 - Navigation: Home link, title tap and Back buttons; panels open as separate views. A version label on the home screen shows which build is loaded.
 - Listening diagnostics (Settings, then "Listening diagnostics"): every `listen()` call in a session adds one entry to `rvc_diag` (localStorage, last 8 sessions, at most 400 takes and 300 events each): block, seconds listened, seconds sung (first to last heard frame), share of that span with a readable pitch, why the take ended (quiet, limit, none, safety, skip, stop), noise floor and voice level in dBFS, how late the mic audio arrived, and the last caption. Phone events are logged with it: app to background and back, gaps in mic audio over 1.5 s, runs of digital silence, the mic cut-off warning, coach speech timeouts, pause, skip and replay. The page shows each session as a table, and Copy or Save as file exports all of it as text.

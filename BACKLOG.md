@@ -120,10 +120,10 @@ Reliability and real examples come first, then teaching depth, then new content.
 | --- | --- | --- | --- | --- |
 | 1 | Confirm the 5 Oct listening fix on the road, and add a diagnostics page that logs every take: seconds listened, share of frames with a readable pitch, why it ended, noise level (page built in version 2026-10-06.3; the drive is still to do) | Reliability is the main weakness, and today I fix from your description alone | S | Needs Paul |
 | 1 | Real singing examples cut from VocalSet | Demonstration is the biggest teaching gap, and you asked for it | M | Done |
-| 1 | Session length and focus settings: 5, 10 or 20 minutes, which topics, how much nasality | Rounds are long; teachers recommend short sessions with one focus | S | Open |
+| 1 | Session length and focus settings: 5, 10 or 20 minutes, which topics, how much nasality | Rounds are long; teachers recommend short sessions with one focus | S | Done |
 | 1 | Natural coach voice from pre-generated speech | The phone voice is robotic and may stop when the app is in the background | L | Open |
 | 1 | Test running in the background and with the phone locked | Unverified; the result decides whether a native Android wrapper is needed | S | Needs Paul |
-| 1 | Backup and export of your data | Range, history, takes and starred cues live on one phone | S | Open |
+| 1 | Backup and export of your data | Range, history, takes and starred cues live on one phone | S | Done |
 | 1 | Automated tests in the repository | Each fix so far has risked breaking something else | M | In progress |
 | 2 | Transfer step: after a technique block, sing a song phrase on "ah" or "mum" with the same cue, then with the words | Standard teaching practice; technique work does not reach songs yet | M | Open |
 | 2 | Teacher-recorded examples for nasality, sing-ah and onsets | No open recording covers them | S | Needs Paul |
@@ -133,7 +133,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 2 | Weak-note map, and practice aimed at your weak notes | The best idea from other apps | M | Open |
 | 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Open |
 | 2 | Old take against new take, side by side | Hearing progress across weeks | S | Open |
-| 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | Open |
+| 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | In progress |
 | 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Open |
 | 3 | Ear training by voice | Common in other apps | M | Open |
 | 3 | Home mode with a live pitch graph | Visual feedback is the kind that lasted in the research | M | Open |

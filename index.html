@@ -75,6 +75,9 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-
 .chart .cross{stroke:var(--dim);stroke-width:1}
 .tip{position:absolute;top:22px;right:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:.75rem var(--mono);color:var(--fg);pointer-events:none}
 details{font-size:.8rem;color:var(--dim)}
+.checks{border:1px solid var(--line);border-radius:8px;margin:0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.checks legend{color:var(--dim);font-size:.9rem;padding:0 4px}
+.checks label,label.tick{flex-direction:row;align-items:center;gap:8px;color:var(--fg)}
 .dlog{display:flex;flex-direction:column;gap:10px}
 .dlog summary{cursor:pointer;color:var(--fg);font:.8rem var(--mono)}
 .dlog pre{margin:6px 0 0;font:.68rem/1.45 var(--mono);color:var(--fg);overflow-x:auto;white-space:pre}
@@ -172,6 +175,11 @@ details th{color:var(--fg)}
       <select id="voiceSel"><option value="">Default English voice</option></select></label>
     <label for="nsSel">Road-noise filter
       <select id="nsSel"><option value="0">Off (most accurate pitch)</option><option value="1">On (try if it hears engine noise as singing)</option></select></label>
+    <label for="lenSel">Session length
+      <select id="lenSel"><option value="0">Until I press Stop</option><option value="5">About 5 minutes</option><option value="10">About 10 minutes</option><option value="20">About 20 minutes</option><option value="30">About 30 minutes</option></select></label>
+    <label for="nasAmt">Nasality work
+      <select id="nasAmt"><option value="more">More: every other technique block</option><option value="normal">Normal: twice in each rotation</option><option value="less">Less: once in each rotation</option><option value="off">Off</option></select></label>
+    <fieldset class="checks" id="topicBox"><legend>Other technique topics in the rotation</legend></fieldset>
     <label for="fbSel">Spoken feedback
       <select id="fbSel"><option value="auto">Automatic: less often as you gain experience</option><option value="all">After every exercise</option></select></label>
     <label for="keySel">Steering-wheel buttons (next = skip, previous = replay take, pause)
@@ -179,6 +187,15 @@ details th{color:var(--fg)}
     <div class="row">
       <button class="btn" id="diagBtn" type="button">Listening diagnostics</button>
     </div>
+    <h2>Backup</h2>
+    <p class="hint">Your range, history, starred cues, settings and takes are stored only on this phone. Save a backup now and then (to Google Drive, for example) and restore it here on a new phone or after clearing Chrome's data. <span id="bkLast"></span></p>
+    <label class="tick"><input type="checkbox" id="bkTakes" checked> Include recorded takes (a larger file)</label>
+    <div class="row">
+      <button class="btn" id="bkSave" type="button">Save backup</button>
+      <button class="btn" id="bkLoad" type="button">Restore from backup</button>
+      <input type="file" id="bkFile" accept=".json,application/json" hidden>
+    </div>
+    <p class="hint" id="bkMsg" role="status" hidden></p>
     <div class="row">
       <button class="btn" id="resetBtn" type="button">Forget my range, history and takes</button>
     </div>
@@ -216,8 +233,9 @@ details th{color:var(--fg)}
         <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option>
       </select>
     </div>
+    <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-06.3</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-06.4</p>
   </div>
 </div>
 
@@ -1081,10 +1099,12 @@ function tipFor(topic){
   else{const mn=Math.min(...list.map(x=>tipStat(x.id).n));t=list.find(x=>tipStat(x.id).n===mn)}
   const st=tipStat(t.id);st.n++;st.last=today();S.tip[topic]=t;saveD();return t;
 }
-async function block(name,fn,{sum=true}={}){
+async function block(name,fn,{sum=true,key=name}={}){
   setStage(name);S.blk={reps:[]};S.skip=false;S.canSkip=true;
+  const t0=clock(),p0=S.pauseTot||0;
   try{
     await fn();
+    learnMin(key,(clock()-t0-((S.pauseTot||0)-p0))/60000);
     const r=S.blk.reps;
     if(sum&&r.length>=3){
       const avg=mean(r.map(x=>x.avg)),bias=mean(r.map(x=>x.bias));
@@ -1098,14 +1118,14 @@ async function block(name,fn,{sum=true}={}){
     S.canSkip=false;await speak("Skipping.");
   }finally{S.canSkip=false;S.skip=false;S.blk=null;saveD()}
 }
-async function warmup(p){
+async function warmup(p,short=false){
   await speak(`Warm-up. ${tipFor("posture").say}`);
   await speak("Lip trills. Close your lips loosely and blow so they flap, like a horse or a motorboat, and add your voice. A singer does it like this.");
   await real("lip-trill",()=>DEMO.trill(p));
-  await speak("Slide up and down like that, gently, for thirty seconds. If your lips won't flap, hum instead.");
-  await sleep(30000);
+  await speak(`Slide up and down like that, gently, for ${short?"fifteen":"thirty"} seconds. If your lips won't flap, hum instead.`);
+  await sleep(short?15000:30000);
   await speak("Now hum these five notes.");
-  for(const r of [p.home-2,p.home])await rep([0,2,4,2,0].map(x=>r+x),{dur:0.6,quiet:true,noRetry:true,own:false,vz:"hum"});
+  for(const r of short?[p.home]:[p.home-2,p.home])await rep([0,2,4,2,0].map(x=>r+x),{dur:0.6,quiet:true,noRetry:true,own:false,vz:"hum"});
   const a=await rep([p.home],{dur:2.2,hold:true,intro:"Now sing ah on this note and hold it, at an easy speaking volume.",maxListen:12000,always:true,need:2.5});
   if(a&&a.heard)S.base=a.level;
 }
@@ -1461,10 +1481,50 @@ $("diagFile").onclick=()=>{
 };
 $("diagClear").onclick=()=>{if(S.running||!confirm("Clear the diagnostics log?"))return;DLS=[];store.set("diag",[]);renderDiag()};
 
+/* ---------- session plan: length and focus ---------- */
+const TECH=[["nasality","Nasality",nasality],["onset","Clean onsets",onset],["registers","Registers",registers],["vowels","Vowels",vowels],["clear","Clear tone",clearTone],
+  ["legato","Smooth line",legato],["breath","Breath and long notes",breath],["release","Loose jaw and tongue",release]];
+/* The technique rotation from the settings. Nasality copies are spread evenly between the other topics;
+   with the default settings this is the original nine-slot rotation, so D.rotT2 carries on where it was. */
+function techRotation(){
+  const on=store.get("topics",null),nas=TECH[0],others=TECH.slice(1).filter(t=>!on||on.includes(t[0])),n=others.length;
+  const c={off:0,less:1,normal:2,more:Math.max(1,n)}[store.get("nasal","normal")];
+  const k=c==null?2:c;
+  if(!n)return k?[nas]:TECH.slice(1);
+  const rot=[];
+  others.forEach((t,i)=>{for(let j=0;j<k;j++)if(Math.min(n-1,Math.floor(j*n/k+0.5))===i)rot.push(nas);rot.push(t)});
+  return rot;
+}
+/* typical minutes per block, measured with tests/timing.js; replaced by this phone's own averages as sessions run */
+const BLOCK_MIN={"Finding your voice":0.9,"Warm-up":2.4,"Short warm-up":1.4,"Nasality":2.4,"Clean onsets":1.8,"Registers":1.3,"Vowels":2.4,"Clear tone":1.7,
+  "Smooth line":1.3,"Breath and long notes":2.3,"Loose jaw and tongue":1.4,"Pitch matching":1.8,"Scales":1.8,"Intervals":1.9,"Mixed practice":5.5,
+  "Song":2.5,"Skills":1.5,"Free singing":1.2,"Reset":0.4,"Cool-down":0.7};
+const estMin=k=>(D.bmin&&D.bmin[k])||BLOCK_MIN[k]||2;
+function learnMin(k,m){
+  diagEv(`${k} took ${m.toFixed(1)} min`);
+  if(!(m>0.15)||m>estMin(k)*3)return;
+  D.bmin=D.bmin||{};const o=D.bmin[k];D.bmin[k]=+(o?o*0.7+m*0.3:m).toFixed(2);
+}
+const WRAP=1.2;  /* minutes kept for the summary and cool-down at the end of a timed session */
+/* Which of a round's blocks fit the time left: highest priority first. In the first round the warm-up and the
+   first technique block always run, so even a five-minute session warms up and works on technique. */
+function fitRound(items,left,first){
+  const keep=new Set();let b=left;
+  for(const it of [...items].sort((x,y)=>x.pri-y.pri)){const e=estMin(it.key);if((first&&it.pri<=2)||e<=b+0.3){keep.add(it);b-=e}}
+  return items.filter(x=>keep.has(x));
+}
+async function coolDown(){
+  await speak("Cool-down. Hum gently and slide down from a comfortable middle note to a low one. Three or four times, with no effort.");
+  await sleep(25000);
+  await speak("That's the end of today's session. Well done.");
+}
+const NUMW={5:"five",10:"ten",20:"twenty",30:"thirty"};
+function showLen(){const m=+store.get("len",0);$("lenHint").textContent=m?`Session length: about ${m} minutes, ending with a cool-down. Change it in Settings.`:"Session length: until you press Stop. Change it in Settings."}
+
 /* ---------- session ---------- */
 async function session(){
   Object.assign(S,{scores:[],biases:[],round:0,misses:0,sessionStart:performance.now(),base:0,loud:0,loudAt:-1e9,repN:0,nas:null,nasScores:[],
-    hiss:0,hold:0,free:null,nasDone:false,cueSaid:false,tip:{},diag:{zero:0,stall:0,tts:0},alertAt:0,ownSaid:false,judgeSaid:false,octSaid:false,breathSaid:false,prevTake:null,lastTake:null});
+    hiss:0,hold:0,free:null,nasDone:false,c0:clock(),pauseTot:0,cueSaid:false,tip:{},diag:{zero:0,stall:0,tts:0},alertAt:0,ownSaid:false,judgeSaid:false,octSaid:false,breathSaid:false,prevTake:null,lastTake:null});
   const done=store.get("history",[]).length;
   S.fbEvery=store.get("fb","auto")==="all"?1:done<2?1:done<5?2:3;
   await loadBank();preloadClips();
@@ -1476,9 +1536,41 @@ async function session(){
   let p=profile();
   if(!p||store.get("rangeDate","")!==today())p=await findRange();
   store.set("rangeDate",today());
-  const tech=[nasality,onset,registers,vowels,clearTone,nasality,legato,breath,release],techN=["Nasality","Clean onsets","Registers","Vowels","Clear tone","Nasality","Smooth line","Breath and long notes","Loose jaw and tongue"];
-  const nextTech=async()=>{const i=D.rotT2%tech.length;D.rotT2++;await block(techN[i],()=>tech[i](p),{sum:techN[i]==="Vowels"})};
+  const rot=techRotation();
+  const nextTech=async()=>{const t=rot[D.rotT2%rot.length];D.rotT2++;await block(t[1],()=>t[2](p),{sum:t[1]==="Vowels"})};
   const prac=[song,skills],pracN=["Song","Skills"];S.done=done;
+  const lim=+store.get("len",0);
+  if(lim){
+    /* a timed session: each round keeps the blocks that fit, then a summary and a cool-down end it */
+    const used=()=>(clock()-S.c0)/60000;
+    await speak(`This is a ${NUMW[lim]||lim} minute session.`);
+    while(true){
+      S.round++;
+      const r=D.rotT2,tk=i=>rot[(r+i)%rot.length][1],short=lim<=10,items=[];
+      if(S.round===1)items.push({key:short?"Short warm-up":"Warm-up",pri:2,run:()=>block("Warm-up",()=>warmup(p,short),{sum:false,key:short?"Short warm-up":"Warm-up"})});
+      items.push({key:tk(0),pri:1,run:nextTech});
+      if(done>=3&&S.round>=2)items.push({key:"Mixed practice",pri:3,run:()=>block("Mixed practice",()=>mixed(p))});
+      else items.push({key:"Pitch matching",pri:3,run:()=>block("Pitch matching",()=>pitchMatch(p,4))},
+        {key:"Scales",pri:6,run:()=>block("Scales",()=>scales(p,3))},{key:"Intervals",pri:7,run:()=>block("Intervals",()=>intervals(p,4))});
+      items.push({key:tk(1),pri:4,run:nextTech});
+      const pi=D.rotP%prac.length;
+      items.push({key:pracN[pi],pri:5,run:async()=>{D.rotP++;await block(pracN[pi],()=>prac[pi](p),{sum:pi===0})}});
+      items.push({key:"Free singing",pri:8,run:()=>block("Free singing",()=>freeSing(),{sum:false})});
+      const plan=fitRound(items,lim-used()-WRAP,S.round===1);
+      if(!plan.length)break;
+      diagEv(`round ${S.round} plan: ${plan.map(x=>x.key).join(", ")}`);
+      for(const it of plan){
+        if(!(S.round===1&&it.pri<=2)&&used()+estMin(it.key)>lim-WRAP+0.5){diagEv(`left out ${it.key}: out of time`);continue}
+        await it.run();
+      }
+      if(lim-used()-WRAP<3)break;
+      await speak("Next round.");
+    }
+    await summary();
+    await block("Cool-down",()=>coolDown(),{sum:false});
+    S.finished=true;
+    return;
+  }
   while(true){
     S.round++;
     if(S.round===1)await block("Warm-up",()=>warmup(p),{sum:false});
@@ -1514,7 +1606,7 @@ async function countdown(min){
 }
 async function start(mode,delayMin=0){
   if(S.running)return;
-  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;
+  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;
   ui.go.textContent=mode==="test"?"End mic test":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
   ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Come back here and press Stop when you arrive.";
   try{
@@ -1533,6 +1625,7 @@ async function start(mode,delayMin=0){
     if(mode!=="test"){saveSession();diagEnd()}
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
+    if(S.finished&&!S.stop){setStage("Finished");ui.say.textContent="Session finished and saved. Progress has your charts and takes."+diagText()}
     if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. Progress has your charts and takes; Guide has the cues you heard."+diagText();}
     ui.hint.textContent="After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.";
   }
@@ -1560,6 +1653,7 @@ function doReplay(){if(S.running&&S.mode==="session"){S.replayReq=true;diagEv("r
 function doPause(on){
   if(!S.running||S.mode!=="session"||S.paused===on)return;
   S.paused=on;showCtl(true);diagEv(on?"paused":"resumed");
+  if(on)S.pause0=clock();else S.pauseTot=(S.pauseTot||0)+clock()-(S.pause0||clock());
   try{navigator.mediaSession.playbackState=on?"paused":"playing"}catch(e){}
   try{speechSynthesis.cancel();speechSynthesis.speak(utter(on?"Paused. Press play to carry on.":"Carrying on."))}catch(e){}
   setSub(on?"paused":"");
@@ -1698,6 +1792,59 @@ function renderGuide(){
 }
 $("guideBtn").onclick=()=>{if(togglePanel("guide"))renderGuide()};
 
+/* ---------- backup: everything the app keeps, in one file ---------- */
+const b64=u8=>{let t="";for(let i=0;i<u8.length;i+=0x8000)t+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(t)};
+const unb64=t=>{const x=atob(t),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return u};
+/* takes are stored as 16-bit samples, half the size of the phone's own copy and still lossless to the ear */
+const pcmOut=f=>{const a=new Int16Array(f.length);for(let i=0;i<f.length;i++)a[i]=Math.max(-32768,Math.min(32767,Math.round(f[i]*32767)));return b64(new Uint8Array(a.buffer))};
+const pcmIn=t=>{const a=new Int16Array(unb64(t).buffer),f=new Float32Array(a.length);for(let i=0;i<a.length;i++)f[i]=a[i]/32767;return f};
+async function idbEntries(st){
+  try{const d=await idb.open();return await new Promise(res=>{const out=[],t=d.transaction(st,"readonly"),q=t.objectStore(st).openCursor();
+    q.onsuccess=()=>{const c=q.result;if(c){out.push([c.key,c.value]);c.continue()}};t.oncomplete=()=>res(out);t.onerror=()=>res(out)})}catch(e){return []}
+}
+async function makeBackup(takes){
+  const ls={};for(const k of Object.keys(localStorage))if(k.startsWith("rvc_"))ls[k]=localStorage.getItem(k);
+  const b={app:"road-voice-coach",kind:"backup",v:1,ver:$("ver").textContent.replace("Version ",""),at:new Date().toISOString(),takes,ls,notes:[],clips:[]};
+  if(takes){
+    for(const [k,v] of await idbEntries("notes"))b.notes.push({key:k,sr:v.sr,p:v.p,err:v.err,pcm:pcmOut(v.pcm)});
+    for(const [,v] of await idbEntries("clips"))b.clips.push({t:v.t,label:v.label,sr:v.sr,pcm:pcmOut(v.pcm)});
+  }
+  return b;
+}
+/* replaces what is on the phone; takes are only replaced when the backup includes them */
+async function restoreBackup(b){
+  for(const k of Object.keys(localStorage))if(k.startsWith("rvc_"))localStorage.removeItem(k);
+  for(const [k,v] of Object.entries(b.ls||{}))if(k.startsWith("rvc_"))localStorage.setItem(k,v);
+  if(b.takes){
+    await idb.clear("notes");await idb.clear("clips");
+    for(const n of b.notes||[])await idb.put("notes",{pcm:pcmIn(n.pcm),sr:n.sr,p:n.p,err:n.err},n.key);
+    for(const c of b.clips||[])await idb.put("clips",{t:c.t,label:c.label,sr:c.sr,pcm:pcmIn(c.pcm)});
+  }
+}
+function bkMsg(t){const m=$("bkMsg");m.textContent=t;m.hidden=!t}
+function showBkLast(){const d=store.get("bkDate","");$("bkLast").textContent=d?`Last backup: ${d}.`:"No backup saved yet."}
+$("bkSave").onclick=async()=>{
+  if(S.running)return;bkMsg("Preparing the file…");
+  try{
+    const b=await makeBackup($("bkTakes").checked);
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(b)],{type:"application/json"}));
+    a.download=`road-voice-coach-backup-${today()}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    store.set("bkDate",today());showBkLast();
+    bkMsg(`Saved ${b.clips.length} takes and ${b.notes.length} model notes with your progress and settings. The file is in Downloads.`);
+  }catch(e){bkMsg("Could not make the backup: "+(e&&e.message||e))}
+};
+$("bkLoad").onclick=()=>{if(!S.running)$("bkFile").click()};
+$("bkFile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  try{
+    const b=JSON.parse(await f.text());
+    if(!b||b.app!=="road-voice-coach"||b.kind!=="backup")throw new Error("this is not a Road Voice Coach backup file");
+    if(!confirm(`Replace everything on this phone with the backup from ${String(b.at).slice(0,10)}?`+(b.takes?"":" Your takes stay as they are; this backup has none.")))return;
+    bkMsg("Restoring…");await restoreBackup(b);bkMsg("Restored. Reloading…");setTimeout(()=>location.reload(),600);
+  }catch(err){bkMsg("Could not restore: "+(err&&err.message||err))}
+};
+showBkLast();
+
 /* ---------- settings ---------- */
 $("setBtn").onclick=()=>{if(togglePanel("settings"))fillMics()};
 $("diagBtn").onclick=()=>{showView("diag");renderDiag()};
@@ -1710,6 +1857,11 @@ async function fillMics(){
   }catch(e){}
 }
 $("micSel").onchange=e=>store.set("mic",e.target.value);
+$("lenSel").value=String(store.get("len",0));$("lenSel").onchange=e=>{store.set("len",+e.target.value);showLen()};showLen();
+$("nasAmt").value=store.get("nasal","normal");$("nasAmt").onchange=e=>store.set("nasal",e.target.value);
+{const box=$("topicBox"),on=store.get("topics",null);
+  for(const [k,name] of TECH.slice(1)){const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.value=k;c.checked=!on||on.includes(k);
+    c.onchange=()=>{const v=[...box.querySelectorAll("input:checked")].map(x=>x.value);store.set("topics",v.length===TECH.length-1?null:v)};l.append(c,name);box.append(l)}}
 $("voiceSel").onchange=e=>{store.set("voice",e.target.value);loadVoices()};
 $("nsSel").value=store.get("ns","0");$("nsSel").onchange=e=>store.set("ns",e.target.value);
 $("fbSel").value=store.get("fb","auto");$("fbSel").onchange=e=>store.set("fb",e.target.value);
