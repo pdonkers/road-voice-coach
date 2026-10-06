@@ -73,6 +73,9 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-
 .chart .ln{fill:none;stroke:var(--flat);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .chart .dot,.chart .hov{fill:var(--flat);stroke:var(--panel);stroke-width:2}
 .chart .cross{stroke:var(--dim);stroke-width:1}
+.chart .nb{fill:var(--flat)}
+.chart .nb.w{fill:var(--amber)}
+.chart .nb.f{opacity:.3}
 .tip{position:absolute;top:22px;right:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:.75rem var(--mono);color:var(--fg);pointer-events:none}
 details{font-size:.8rem;color:var(--dim)}
 .checks{border:1px solid var(--line);border-radius:8px;margin:0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -196,6 +199,8 @@ details th{color:var(--fg)}
       <select id="nsSel"><option value="0">Off (most accurate pitch)</option><option value="1">On (try if it hears engine noise as singing)</option></select></label>
     <label for="lenSel">Session length
       <select id="lenSel"><option value="0">Until I press Stop</option><option value="5">About 5 minutes</option><option value="10">About 10 minutes</option><option value="20">About 20 minutes</option><option value="30">About 30 minutes</option></select></label>
+    <label for="sungSel">Daily singing limit (minutes of actual singing; at the limit the coach ends the session with a cool-down)
+      <select id="sungSel"><option value="0">Off</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="45">45 minutes</option></select></label>
     <label for="goalSel">Weekly goal
       <select id="goalSel"><option value="3">3 days a week</option><option value="4">4 days a week</option><option value="5">5 days a week</option><option value="6">6 days a week</option><option value="7">7 days a week</option></select></label>
     <label for="nasAmt">Nasality work
@@ -256,7 +261,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.2</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.3</p>
   </div>
 </div>
 
@@ -471,7 +476,7 @@ function analyseSeq(frames,targetsRaw,o={},S0={}){
     if(scoops>=Math.max(2,Math.ceil(ok.length/2)))parts.push("You slid up into the notes. Try landing on them straight away.");
   }
   return {heard:true,avg,bias,scoops,level,success:avg<40&&ok.length>=Math.ceil(T.length*0.8),retry:avg>=70,
-    text:parts.join(" "),single:T.length===1?r.map[0]:null};
+    text:parts.join(" "),single:T.length===1?r.map[0]:null,T,errs:r.errs};
 }
 /* a held note: every frame near the main pitch, from the first to the last, so gaps where the pitch couldn't be read don't shorten it */
 function holdSeg(frames){
@@ -508,13 +513,13 @@ function analyseHold(frames,target,o={}){
     if(!o.longest&&dur<(o.need||2.5)*0.8)parts.push("Try holding it longer.");
   }
   return {heard:true,avg:Math.abs(e),bias:e,sd:s.sd,dur,drift,vib,level,retry:false,
-    success:Math.abs(e)<35&&(s.sd<30||!!vib)&&dur>=(o.need||2.5)*0.8,text:parts.join(" "),single:s};
+    success:Math.abs(e)<35&&(s.sd<30||!!vib)&&dur>=(o.need||2.5)*0.8,text:parts.join(" "),single:s,T:[target],errs:[e]};
 }
 
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
-const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null});
+const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{}});
 let D=Object.assign(D0(),store.get("data",{}));
 const saveD=()=>store.set("data",D);
 const idb={db:null,
@@ -532,7 +537,7 @@ const NOISE_MIN=0.0003;
 const S={tip:{},done:0,diag:{zero:0,stall:0,tts:0},running:false,stop:false,skip:false,canSkip:false,paused:false,replayReq:false,mode:null,ctx:null,out:null,an:null,spec:null,
   stream:null,buf:null,sbuf:null,timer:null,noise:0.001,frames:null,specMode:null,nAcc:null,nspec:null,hbNoise:0,rec:null,lat:250,
   wake:null,voice:null,misses:0,scores:[],biases:[],round:0,sessionStart:0,bank:new Map(),lastTake:null,prevTake:null,blk:null,
-  base:0,loud:0,loudAt:-1e9,repN:0,fbEvery:1,nas:null,nasScores:[],ltI:0,silent:null};
+  base:0,loud:0,loudAt:-1e9,repN:0,fbEvery:1,nas:null,nasScores:[],ltI:0,silent:null,nBlk:0,cool:false,wind:false,weakSaid:false};
 const $=id=>document.getElementById(id);
 const ui={stage:$("stage"),say:$("say"),target:$("target"),you:$("you"),needle:$("needle"),lvl:$("lvl"),go:$("goBtn"),hint:$("hint"),ctl:$("ctl")};
 let targetMidi=null,stageName="Ready";
@@ -542,7 +547,9 @@ function setSub(s){if(S.paused)s="paused";ui.stage.textContent=s?`${stageName} �
 
 class Stopped extends Error{}
 class Skip extends Error{}
-const chk=()=>{if(S.stop)throw new Stopped();if(S.skip){S.skip=false;throw new Skip()}};
+/* the first Stop press (or the daily singing limit) winds the session down with a cool-down; it is a Stopped so every wait and rethrow already lets it through */
+class Wind extends Stopped{constructor(why){super();this.why=why}}
+const chk=()=>{if(S.stop)throw new Stopped();if(S.wind){S.wind=false;throw new Wind("stop")}if(S.skip){S.skip=false;throw new Skip()}};
 /* Browsers slow page timers to about once a second while the page is in the background.
    So every wait is also checked each time a block of microphone audio arrives (about 90 times a second). */
 const waiters=new Set();
@@ -557,7 +564,7 @@ function after(ms,fn){
 const sleep=ms=>new Promise((res,rej)=>{const t0=performance.now(),w=ms/SPEED;let done=false;
   const off=()=>{done=true;waiters.delete(ck);clearInterval(iv)};
   const ck=n=>{if(done)return;
-    if(S.stop||S.skip){off();try{chk();res()}catch(e){rej(e)}}
+    if(S.stop||S.skip||S.wind){off();try{chk();res()}catch(e){rej(e)}}
     else if(n-t0>=w){off();res()}};
   const iv=setInterval(()=>ck(performance.now()),Math.min(40,Math.max(4,w/2)));
   waiters.add(ck)});
@@ -729,7 +736,7 @@ async function listen({max=8000,wait=6000,endSil=1500,spec=null,active=null,coun
       if(first&&now-last>endSil&&now-first>600){end="quiet";break}
     }
   }catch(e){if(e instanceof Skip)end="skip";throw e}
-  finally{S.specMode=null;diagTake(S.frames,t0,first,last,end,at()-t0,clock()-w0)}
+  finally{S.specMode=null;diagTake(S.frames,t0,first,last,end,at()-t0,clock()-w0);if(first&&!active&&S.mode==="session")sungAdd((last-first)/1000)}
   const f=S.frames;S.frames=null;
   const pcm=recStop();
   const on=f.filter(act);
@@ -864,7 +871,7 @@ async function speak(text,caption=true){
   return new Promise((res,rej)=>{
     let done=false;
     const fin=()=>{if(done)return;done=true;waiters.delete(poll);clearInterval(iv);offTo();try{chk()}catch(e){return rej(e)}after((150+S.lat)/SPEED,res)};
-    const poll=()=>{if(S.stop||S.skip){try{speechSynthesis.cancel()}catch(e){}fin()}};
+    const poll=()=>{if(S.stop||S.skip||S.wind){try{speechSynthesis.cancel()}catch(e){}fin()}};
     const iv=setInterval(poll,100);waiters.add(poll);
     let offTo=after((2500+text.length*95)/SPEED,()=>{S.diag.tts++;diagEv("coach voice did not finish speaking");fin()});
     if(!("speechSynthesis" in window)){offTo();offTo=after((1200+text.length*60)/SPEED,fin);return}
@@ -928,6 +935,24 @@ function streakOf(days){const s=new Set(days.map(dayN));let n=dayN(today()),k=0;
 const weekDays=(days,mon)=>days.filter(d=>{const n=dayN(d);return n>=mon&&n<mon+7}).length;
 const numWord=n=>n<=10?["zero","one","two","three","four","five","six","seven","eight","nine","ten"][n]:String(n);
 
+/* ---------- singing time and the daily limit ---------- */
+/* rvc_sung = {d: date, s: seconds of actual singing that day, w: 1 once the 80 percent warning was said}, written about every 10 s of new singing and when a session ends */
+const sungRec=()=>{const v=store.get("sung",null);return v&&v.d===today()?v:{d:today(),s:0}};
+let sungPend=0;
+const sungS=()=>sungRec().s+sungPend;
+function sungSave(extra){const v=sungRec();v.s=+(v.s+sungPend).toFixed(1);sungPend=0;store.set("sung",Object.assign(v,extra))}
+const sungAdd=sec=>{if(sec>0&&isFinite(sec))sungPend+=sec;if(sungPend>=10)sungSave()};
+const sungMax=()=>+store.get("sungMax",30);
+const sungLimit=()=>{const m=sungMax();return m&&sungS()>=m*60};
+/* checked where every block starts: the 80 percent warning once a day, and true when the limit is reached */
+async function limitCheck(){
+  const m=sungMax();if(!m||S.mode!=="session")return false;
+  const lim=m*60,sec=sungS();
+  if(sec>=lim)return true;
+  if(sec>=lim*0.8&&!sungRec().w){sungSave({w:1});const k=Math.max(1,Math.round((lim-sec)/60));await speak(`About ${numWord(k)} minute${k===1?"":"s"} of singing left for today.`)}
+  return false;
+}
+
 /* ---------- range and difficulty ---------- */
 function profile(){return store.get("profile",null)}
 function band(p){
@@ -945,12 +970,25 @@ function result(k,ok){
     if(r<=0.5&&lvl(k)>1){D.lv[k]=lvl(k)-1;D.res[k]=[];return "down"}}
   return null;
 }
+/* Per-note map, D.notes[midi]={n,err}: takes and average cents off for each target note. Only the pitch exercises count (the ones with a kind:
+   notes, scales, intervals, long notes); technique blocks, where pitch is not the point, and the half-step climb stay out. A note that was not
+   found in a take that was heard counts as 100 cents. A plain mean for the first four takes, then a running average that follows the latest. */
+function noteStat(m,e){const k=D.notes[m]=D.notes[m]||{n:0,err:0};k.n++;k.err=+(k.n<5?k.err+(e-k.err)/k.n:k.err*0.85+e*0.15).toFixed(1)}
+function noteMap(a){D.notes=D.notes||{};a.T.forEach((m,i)=>noteStat(m,a.errs[i]==null?100:Math.abs(a.errs[i])))}
+/* the hardest notes with five takes or more between a and b: 15 cents or more off, worst first */
+const weakIn=(a,b,k=3)=>Object.entries(D.notes||{}).map(([m,v])=>({m:+m,n:v.n,err:v.err})).filter(x=>x.n>=5&&x.err>=15&&x.m>=a&&x.m<=b).sort((x,y)=>y.err-x.err).slice(0,k);
 const rnd=(a,b)=>a+Math.floor(Math.random()*Math.max(1,b-a+1));
-function genPm(p){
+/* weak: aim at one of the weak notes inside this level's range (if there is one), and keep that take out of the level, so the levels still follow the ordinary notes */
+function genPm(p,weak=false){
   const {lo,hi}=band(p),L=lvl("pm");let a=lo,b=hi;
   if(L===1){a=Math.max(lo,p.home-3);b=Math.min(hi,p.home+4)}
   if(L>=3){a=p.low+1;b=p.high-1}
-  return {t:[rnd(a,b)],o:{dur:L>=4?0.6:1.2,kind:"pm"}};
+  const w=weak?pick(weakIn(a,b)):undefined;
+  return w?{t:[w.m],o:{dur:L>=4?0.6:1.2,kind:"pm",noLevel:true},weak:true}:{t:[rnd(a,b)],o:{dur:L>=4?0.6:1.2,kind:"pm"}};
+}
+async function repWeak(g){
+  if(g.weak&&!S.weakSaid){S.weakSaid=true;await speak("This one is a note you find harder.")}
+  return rep(g.t,g.o);
 }
 const SCALES={1:[0,2,4,2,0],2:[0,2,4,5,7,5,4,2,0],3:[0,2,4,5,7,5,4,2,0],4:[0,4,7,12,7,4,0],5:[0,2,4,5,7,9,11,12,11,9,7,5,4,2,0]};
 function genSc(p){
@@ -1037,7 +1075,8 @@ async function rep(targets,o={}){
     let lvMsg="";
     if(a.heard){
       if(!o.quiet&&!o.swell&&!o.noScore){S.scores.push(a.avg);S.biases.push(a.bias);if(S.blk)S.blk.reps.push({avg:a.avg,bias:a.bias,take})}
-      if(o.kind){const ch=result(o.kind,a.success);if(ch==="up")lvMsg="Stepping up a level.";if(ch==="down")lvMsg="I'll make this one a bit easier."}
+      if(o.kind&&!o.quiet&&!o.noScore)noteMap(a);
+      if(o.kind&&!o.noLevel){const ch=result(o.kind,a.success);if(ch==="up")lvMsg="Stepping up a level.";if(ch==="down")lvMsg="I'll make this one a bit easier."}
       if(o.vowel){const v=D.vow[o.vowel]=D.vow[o.vowel]||{n:0,sum:0,abs:0};v.n++;v.sum+=a.bias;v.abs+=a.avg}
       if(o.longest){S.hold=Math.max(S.hold||0,a.dur);const prev=D.best.hold||0;
         a.text=`${Math.round(a.dur)} seconds. `+(prev?(a.dur>prev+0.5?`A new record; your best was ${Math.round(prev)}. `:`Your best is ${Math.round(prev)}. `):"")+a.text;
@@ -1153,7 +1192,8 @@ function tipFor(topic){
   else{const mn=Math.min(...list.map(x=>tipStat(x.id).n));t=list.find(x=>tipStat(x.id).n===mn)}
   const st=tipStat(t.id);st.n++;st.last=today();S.tip[topic]=t;saveD();return t;
 }
-async function block(name,fn,{sum=true,key=name}={}){
+async function block(name,fn,{sum=true,key=name,end=false}={}){
+  if(!end&&await limitCheck())throw new Wind("limit");
   setStage(name);S.blk={reps:[]};S.skip=false;S.canSkip=true;
   const t0=clock(),p0=S.pauseTot||0;
   try{
@@ -1170,7 +1210,7 @@ async function block(name,fn,{sum=true,key=name}={}){
     if(!(e instanceof Skip))throw e;
     S.frames=null;S.rec=null;S.specMode=null;setSub("");
     S.canSkip=false;await speak("Skipping.");
-  }finally{S.canSkip=false;S.skip=false;S.blk=null;saveD()}
+  }finally{S.canSkip=false;S.skip=false;S.blk=null;S.nBlk++;saveD()}
 }
 async function warmup(p,short=false){
   await speak(`Warm-up. ${tipFor("posture").say}`);
@@ -1263,7 +1303,7 @@ async function nasality(p){
 async function pitchMatch(p,n){
   if(!D.seen.pm)await speak("Pitch matching. I give you a note, you sing it back on ah.");
   if(S.round===1)await speak(`Today's pitch cue: ${tipFor("pitch").say}`);
-  for(let i=0;i<n;i++){const g=genPm(p);await rep(g.t,g.o)}
+  for(let i=0;i<n;i++)await repWeak(genPm(p,Math.random()<1/3));
 }
 async function scales(p,n){
   if(!D.seen.sc)await speak("Scales. Listen to the pattern, then sing it back on ah or on numbers.");
@@ -1275,7 +1315,7 @@ async function intervals(p,n){
 }
 async function mixed(p){
   await speak("Mixed practice. Single notes, scales and intervals, in random order.");
-  for(let i=0;i<9;i++){const g=pick([genPm,genSc,genIv])(p);await rep(g.t,g.o)}
+  for(let i=0;i<9;i++){let g=Math.random()<1/3?genPm(p,true):null;if(!g||!g.weak)g=pick([genPm,genSc,genIv])(p);await repWeak(g)}
 }
 const VOW=[
   {k:"ee",say:"E, as in see",tip:"Keep the tip of your tongue behind your lower teeth. As the notes go up, let your jaw drop a little."},
@@ -1664,10 +1704,10 @@ function fitRound(items,left,first){
   for(const it of [...items].sort((x,y)=>x.pri-y.pri)){const e=estMin(it.key);if((first&&it.pri<=2)||e<=b+0.3){keep.add(it);b-=e}}
   return items.filter(x=>keep.has(x));
 }
-async function coolDown(){
+async function coolDown(last="That's the end of today's session. Well done."){
   await speak("Cool-down. Hum gently and slide down from a comfortable middle note to a low one. Three or four times, with no effort.");
   await sleep(25000);
-  await speak("That's the end of today's session. Well done.");
+  await speak(last);
 }
 const NUMW={5:"five",10:"ten",20:"twenty",30:"thirty"};
 function showLen(){const m=+store.get("len",0);$("lenHint").textContent=m?`Session length: about ${m} minutes, ending with a cool-down. Change it in Settings.`:"Session length: until you press Stop. Change it in Settings."}
@@ -1675,7 +1715,7 @@ function showLen(){const m=+store.get("len",0);$("lenHint").textContent=m?`Sessi
 /* ---------- session ---------- */
 async function session(){
   Object.assign(S,{scores:[],biases:[],round:0,misses:0,sessionStart:performance.now(),base:0,loud:0,loudAt:-1e9,repN:0,nas:null,nasScores:[],
-    hiss:0,hold:0,free:null,nasDone:false,c0:clock(),pauseTot:0,cueSaid:false,tip:{},diag:{zero:0,stall:0,tts:0},alertAt:0,ownSaid:false,judgeSaid:false,octSaid:false,breathSaid:false,prevTake:null,lastTake:null});
+    hiss:0,hold:0,free:null,nasDone:false,c0:clock(),pauseTot:0,cueSaid:false,tip:{},diag:{zero:0,stall:0,tts:0},alertAt:0,ownSaid:false,judgeSaid:false,octSaid:false,breathSaid:false,prevTake:null,lastTake:null,nBlk:0,cool:false,wind:false,weakSaid:false});
   const done=store.get("history",[]).length;
   S.fbEvery=store.get("fb","auto")==="all"?1:done<2?1:done<5?2:3;
   await loadBank();preloadClips();
@@ -1685,6 +1725,7 @@ async function session(){
   await calibrate(2500);
   await latencyCheck();
   if(DL){DL.noise0=dB(S.noise);DL.lat=S.lat;diagSave()}
+  if(sungLimit()){await speak("You've reached today's singing limit. Rest your voice and come back tomorrow.");S.finished=true;return}
   let p=profile();
   if(!p||store.get("rangeDate","")!==today())p=await findRange();
   store.set("rangeDate",today());
@@ -1692,54 +1733,62 @@ async function session(){
   const nextTech=async()=>{const t=rot[D.rotT2%rot.length];D.rotT2++;await block(t[1],()=>t[2](p),{sum:t[1]==="Vowels"})};
   const prac=[song,skills],pracN=["Song","Skills"];S.done=done;
   const lim=+store.get("len",0);
-  if(lim){
-    /* a timed session: each round keeps the blocks that fit, then a summary and a cool-down end it */
-    const used=()=>(clock()-S.c0)/60000;
-    await speak(`This is a ${NUMW[lim]||lim} minute session.`);
-    while(true){
-      S.round++;
-      const r=D.rotT2,tk=i=>rot[(r+i)%rot.length][1],short=lim<=10,items=[];
-      if(S.round===1)items.push({key:short?"Short warm-up":"Warm-up",pri:2,run:()=>block("Warm-up",()=>warmup(p,short),{sum:false,key:short?"Short warm-up":"Warm-up"})});
-      items.push({key:tk(0),pri:1,run:nextTech});
-      if(done>=3&&S.round>=2)items.push({key:"Mixed practice",pri:3,run:()=>block("Mixed practice",()=>mixed(p))});
-      else items.push({key:"Pitch matching",pri:3,run:()=>block("Pitch matching",()=>pitchMatch(p,4))},
-        {key:"Scales",pri:6,run:()=>block("Scales",()=>scales(p,3))},{key:"Intervals",pri:7,run:()=>block("Intervals",()=>intervals(p,4))});
-      items.push({key:tk(1),pri:4,run:nextTech});
-      const pi=D.rotP%prac.length;
-      items.push({key:pracN[pi],pri:5,run:async()=>{D.rotP++;await block(pracN[pi],()=>prac[pi](p),{sum:pi===0})}});
-      items.push({key:"Free singing",pri:8,run:()=>block("Free singing",()=>freeSing(),{sum:false})});
-      const plan=fitRound(items,lim-used()-WRAP,S.round===1);
-      if(!plan.length)break;
-      diagEv(`round ${S.round} plan: ${plan.map(x=>x.key).join(", ")}`);
-      for(const it of plan){
-        if(!(S.round===1&&it.pri<=2)&&used()+estMin(it.key)>lim-WRAP+0.5){diagEv(`left out ${it.key}: out of time`);continue}
-        await it.run();
+  /* The loops run until the time is up (timed) or forever (untimed); a Wind from the Stop button or the singing limit ends them early. Both then wind down the same way. */
+  let why="end";
+  try{
+    if(lim){
+      /* a timed session: each round keeps the blocks that fit, then a summary and a cool-down end it */
+      const used=()=>(clock()-S.c0)/60000;
+      await speak(`This is a ${NUMW[lim]||lim} minute session.`);
+      while(true){
+        S.round++;
+        const r=D.rotT2,tk=i=>rot[(r+i)%rot.length][1],short=lim<=10,items=[];
+        if(S.round===1)items.push({key:short?"Short warm-up":"Warm-up",pri:2,run:()=>block("Warm-up",()=>warmup(p,short),{sum:false,key:short?"Short warm-up":"Warm-up"})});
+        items.push({key:tk(0),pri:1,run:nextTech});
+        if(done>=3&&S.round>=2)items.push({key:"Mixed practice",pri:3,run:()=>block("Mixed practice",()=>mixed(p))});
+        else items.push({key:"Pitch matching",pri:3,run:()=>block("Pitch matching",()=>pitchMatch(p,4))},
+          {key:"Scales",pri:6,run:()=>block("Scales",()=>scales(p,3))},{key:"Intervals",pri:7,run:()=>block("Intervals",()=>intervals(p,4))});
+        items.push({key:tk(1),pri:4,run:nextTech});
+        const pi=D.rotP%prac.length;
+        items.push({key:pracN[pi],pri:5,run:async()=>{D.rotP++;await block(pracN[pi],()=>prac[pi](p),{sum:pi===0})}});
+        items.push({key:"Free singing",pri:8,run:()=>block("Free singing",()=>freeSing(),{sum:false})});
+        const plan=fitRound(items,lim-used()-WRAP,S.round===1);
+        if(!plan.length)break;
+        diagEv(`round ${S.round} plan: ${plan.map(x=>x.key).join(", ")}`);
+        for(const it of plan){
+          if(!(S.round===1&&it.pri<=2)&&used()+estMin(it.key)>lim-WRAP+0.5){diagEv(`left out ${it.key}: out of time`);continue}
+          await it.run();
+        }
+        if(lim-used()-WRAP<3)break;
+        await speak("Next round.");
       }
-      if(lim-used()-WRAP<3)break;
+    }else while(true){
+      S.round++;
+      if(S.round===1)await block("Warm-up",()=>warmup(p),{sum:false});
+      await nextTech();
+      if(done>=3&&S.round>=2)await block("Mixed practice",()=>mixed(p));
+      else{
+        await block("Pitch matching",()=>pitchMatch(p,4));
+        await block("Scales",()=>scales(p,3));
+        await block("Intervals",()=>intervals(p,4));
+      }
+      await nextTech();
+      {const i=D.rotP%prac.length;D.rotP++;await block(pracN[i],()=>prac[i](p),{sum:i===0})}
+      await block("Free singing",()=>freeSing(),{sum:false});
+      await summary();
+      await block("Reset",()=>resetVoice(),{sum:false});
       await speak("Next round.");
     }
-    await summary();
-    await block("Cool-down",()=>coolDown(),{sum:false});
-    S.finished=true;
-    return;
+  }catch(e){
+    if(!(e instanceof Wind))throw e;
+    why=e.why;S.frames=null;S.rec=null;S.specMode=null;S.canSkip=false;setSub("");setTarget(null);
   }
-  while(true){
-    S.round++;
-    if(S.round===1)await block("Warm-up",()=>warmup(p),{sum:false});
-    await nextTech();
-    if(done>=3&&S.round>=2)await block("Mixed practice",()=>mixed(p));
-    else{
-      await block("Pitch matching",()=>pitchMatch(p,4));
-      await block("Scales",()=>scales(p,3));
-      await block("Intervals",()=>intervals(p,4));
-    }
-    await nextTech();
-    {const i=D.rotP%prac.length;D.rotP++;await block(pracN[i],()=>prac[i](p),{sum:i===0})}
-    await block("Free singing",()=>freeSing(),{sum:false});
-    await summary();
-    await block("Reset",()=>resetVoice(),{sum:false});
-    await speak("Next round.");
-  }
+  /* from here a Stop press stops at once */
+  S.cool=true;S.wind=false;
+  if(why==="stop")await speak("Okay, let's finish with a cool-down.");
+  else{if(why==="limit")await speak("That's enough singing for today. Your voice has done its work.");await summary()}
+  await block("Cool-down",()=>coolDown(why==="stop"?"That's it for today. Well done.":undefined),{sum:false,end:true});
+  S.finished=true;
 }
 function showCtl(on){ui.ctl.hidden=!on;$("pauseBtn").textContent=S.paused?"Resume":"Pause"}
 /* delayed start: the microphone opens at the press (a page may not open it later from the background), the session begins after the wait */
@@ -1758,9 +1807,9 @@ async function countdown(min){
 }
 async function start(mode,delayMin=0){
   if(S.running)return;
-  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;S.sessionStart=0;
+  S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;S.sessionStart=0;S.cool=false;S.wind=false;S.nBlk=0;
   ui.go.textContent=mode==="test"?"End mic test":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
-  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Come back here and press Stop when you arrive.";
+  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Press Stop when you arrive for a short cool-down, or twice to end at once.";
   try{
     if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
     try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}
@@ -1774,7 +1823,7 @@ async function start(mode,delayMin=0){
   }catch(e){
     if(!(e instanceof Stopped)){setStage("Something went wrong");ui.say.textContent=e&&e.name==="NotAllowedError"?"The microphone was blocked. Allow microphone access for this page in Chrome, then press Start again.":"Could not start: "+(e&&e.message||e);console.error(e)}
   }finally{
-    if(mode!=="test"){saveSession();diagEnd();if(S.sessionStart&&(performance.now()-S.sessionStart)*SPEED>=180000)noteDay()}
+    if(mode!=="test"){sungSave();saveSession();diagEnd();if(S.sessionStart&&(performance.now()-S.sessionStart)*SPEED>=180000)noteDay()}
     closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.finished&&!S.stop){setStage("Finished");ui.say.textContent="Session finished and saved. Progress has your charts and takes."+diagText()}
@@ -1789,7 +1838,16 @@ function diagText(){
   if(d.tts>=3)out.push(`the coach voice failed to speak ${d.tts} times`);
   return out.length?" Note: "+out.join(", and ")+".":"";
 }
-function stop(){S.stop=true;try{speechSynthesis.cancel()}catch(e){}}
+/* In a session, past the first block, the first press starts a cool-down; the second, or any press before that, stops at once. */
+function stop(){
+  if(S.running&&S.mode==="session"&&!S.cool&&!S.stop&&S.nBlk>0){
+    S.cool=true;S.wind=true;diagEv("stop pressed: cool-down first");ui.go.textContent="Stop now";
+    if(S.paused){S.paused=false;S.pauseTot=(S.pauseTot||0)+clock()-(S.pause0||clock());showCtl(true)}
+    try{speechSynthesis.cancel()}catch(e){}
+    return;
+  }
+  S.stop=true;try{speechSynthesis.cancel()}catch(e){}
+}
 ui.go.onclick=()=>S.running?stop():start("session");
 const delaySel=$("delaySel"),laterBtn=$("laterBtn");
 delaySel.value=String(store.get("delay",10));
@@ -1871,6 +1929,25 @@ function vowelChart(){
     `</div><div class="legend"><span><i style="background:var(--flat)"></i>flat</span><span><i style="background:var(--sharp)"></i>sharp</span></div>`;
   return fig;
 }
+/* the weak-note map: one bar per semitone of the range, height = average cents off; notes with under 3 takes are faint, the two weakest (5 takes or more) amber */
+function noteChart(){
+  const fig=document.createElement("figure");fig.className="chart";
+  const cap=`<figcaption>Notes <small>average cents off on each note of your range, lower is better</small></figcaption>`;
+  const p=profile(),nt=D.notes||{};
+  if(!p||!Object.keys(nt).length){fig.innerHTML=cap+`<p class="hint">No data yet. It fills as you practise notes, scales and intervals.</p>`;return fig}
+  const ms=[];for(let m=p.low;m<=p.high;m++)ms.push(m);
+  const W=320,H=130,L=30,R=8,T=10,B=22,bw=(W-L-R)/ms.length,vals=ms.map(m=>nt[m]?nt[m].err:0);
+  const step=niceStep(Math.max(50,...vals)/3),hi=Math.ceil(Math.max(50,...vals)/step)*step,Y=v=>T+(H-T-B)*(1-v/hi);
+  const w2=weakIn(p.low,p.high,2),weak=w2.map(x=>x.m),every=ms.length<=24?2:3;
+  let g="";for(let v=0;v<=hi+step/2;v+=step)g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L-6}" y="${Y(v)+3.5}" text-anchor="end" class="tick">${Math.round(v)}</text>`;
+  const bars=ms.map((m,i)=>{const k=nt[m],x=L+i*bw,lab=i%every===0?`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" class="tick">${nname(m)}</text>`:"";
+    if(!k)return lab;const y=Y(Math.min(k.err,hi));
+    return `<rect x="${(x+1).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${(Y(0)-y).toFixed(1)}" class="nb${weak.includes(m)?" w":""}${k.n<3?" f":""}"><title>${nname(m)}: ${Math.round(k.err)}¢ off over ${k.n} take${k.n===1?"":"s"}</title></rect>`+lab}).join("");
+  const name=x=>`${nname(x.m)} (${Math.round(x.err)}¢)`;
+  const line=w2.length?`Hardest for you: ${w2.map(name).join(" and ")}.`:"Once a note has five takes, the hardest ones show here.";
+  fig.innerHTML=cap+`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Average cents off for each note from ${nname(p.low)} to ${nname(p.high)}">${g}${bars}</svg><p class="hint" style="margin-top:6px">${esc(line)}</p>`;
+  return fig;
+}
 async function renderProgress(){
   const h=store.get("history",[]),box=$("charts");box.innerHTML="";
   const lab=(x,i)=>x.d.slice(5)+(h.filter((y,j)=>j<i&&y.d===x.d).length?"·"+(h.filter((y,j)=>j<i&&y.d===x.d).length+1):"");
@@ -1883,11 +1960,13 @@ async function renderProgress(){
       for(let i=0;i<7;i++){const q=document.createElement("i");if(set.has(m+i)){q.className="on";c++}else if(m+i>t)q.className="fut";col.append(q)}
       col.setAttribute("role","img");col.setAttribute("aria-label",`Week of ${dayS(m).slice(5)}: ${c} of 7 days`);wk.append(col)}
     box.append(pr,wk)}
+  {const m=sungMax(),k=Math.round(sungS()/60),sp=document.createElement("p");sp.className="hint";sp.textContent=m?`Singing today: ${k} of ${m} minutes.`:`Singing today: ${k} minute${k===1?"":"s"}.`;box.append(sp)}
   const p=profile();
   if(p){const d=document.createElement("p");d.className="hint";d.textContent=`Range ${nname(p.low)} to ${nname(p.high)}, comfortable note ${nname(p.home)}. Levels: notes ${lvl("pm")}, scales ${lvl("sc")}, intervals ${lvl("iv")}, long notes ${lvl("lt")}.`+(D.brk&&D.brk.length?` Your voice tends to flip around ${nname(median(D.brk))}.`:"");box.append(d)}
   box.append(lineChart("Pitch error","average cents off per session, lower is better","¢",series(x=>x.err)));
   box.append(lineChart("Nasality measure","experimental, 100 = your open sound","",series(x=>x.nasal)));
   box.append(vowelChart());
+  box.append(noteChart());
   box.append(lineChart("Range","semitones from lowest to highest note"," st",series(x=>x.low!=null?x.high-x.low:null,x=>`${nname(x.low)} to ${nname(x.high)}`)));
   box.append(lineChart("Breath","longest steady S, seconds"," s",series(x=>x.hiss)));
   box.append(lineChart("Longest note","seconds held"," s",series(x=>x.hold)));
@@ -2041,6 +2120,7 @@ async function fillMics(){
 }
 $("micSel").onchange=e=>store.set("mic",e.target.value);
 $("lenSel").value=String(store.get("len",0));$("lenSel").onchange=e=>{store.set("len",+e.target.value);showLen()};showLen();
+$("sungSel").value=String(sungMax());$("sungSel").onchange=e=>store.set("sungMax",+e.target.value);
 $("goalSel").value=String(goalDays());$("goalSel").onchange=e=>store.set("goal",+e.target.value);
 $("nasAmt").value=store.get("nasal","normal");$("nasAmt").onchange=e=>store.set("nasal",e.target.value);
 {const box=$("topicBox");

@@ -55,7 +55,7 @@ The app already follows the evidence on feedback and practice structure; where i
 | Mixed practice order | Voice Science; motor-learning review | Mixed practice from the fourth session | None |
 | A voice as the model | [Pitch matching with a voice model](https://www.sciencedirect.com/science/article/abs/pii/S0892199713000027); [own-voice advantage](https://www.sciencedirect.com/science/article/abs/pii/S0010028514000036) | Voice-like synthesized notes; your own in-tune takes reused | A real singer in the technique examples only; the pitch notes are still synthesized |
 | Apply technique to song phrases | Singwell; Pfitzner: technique block, then repertoire problem spots; [30 Day Singer](https://www.30daysinger.com/blog/stop-singing-with-a-nasally-voice): sing the melody on "ah" or "mum" before the words | Song practice exists but is separate from the technique topics | No transfer step |
-| Gentle warm-up, cool-down, rest | Pfitzner: first notes at 70% volume, a rest after every 5 to 10 minutes of intense singing, cool down with humming | Warm-up, volume warning, short reset between rounds | No limit on total singing time; no cool-down when you stop |
+| Gentle warm-up, cool-down, rest | Pfitzner: first notes at 70% volume, a rest after every 5 to 10 minutes of intense singing, cool down with humming | Warm-up, volume warning, short reset between rounds | Daily singing limit and a cool-down when you stop: done on 7 Oct |
 | Teaching fitted to the student's goals | [Evidence-Based Voice Pedagogy](https://kariragan.com/defining-evidence-based-voice-pedagogy-a-new-framework/): research, teacher expertise, and student goals together | Cues rotate and can be starred | The app never asks what you want to work on |
 
 The third leg of evidence-based teaching is a teacher's ear. No app replaces that, so one lesson with a voice teacher remains the best check on whether the app is training the right things.
@@ -66,7 +66,7 @@ No other app I found coaches by voice without a screen, so the car use is still 
 
 | Feature | Who has it | Here |
 | --- | --- | --- |
-| Per-note history, with practice aimed at weak notes | [Singing Carrots](https://singingcarrots.com/blog/top-7-ai-vocal-coaches/) | Missing |
+| Per-note history, with practice aimed at weak notes | [Singing Carrots](https://singingcarrots.com/blog/top-7-ai-vocal-coaches/) | Done on 7 Oct |
 | Session plan built from your weaknesses | Singing Carrots | Missing; the rotation is fixed |
 | Daily limit to protect the voice (300 notes) | Singing Carrots | Missing |
 | Songs moved into your range, and song suggestions that fit it | [Simply Sing](https://americansongwriter.com/best-singing-apps/), Yousician, Singing Carrots | Three songs, moved into your range; no suggestions |
@@ -130,10 +130,10 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 2 | More nasality exercises from teachers: hold "hung", "uh" opening to "ah", puffed cheeks, breathing in on a "k", dopey tone | Your main goal, and more variety | S | Done |
 | 2 | Exercise sounds with a job ("ng", "gee", "mum", "nuh") and a half-step climb | Core teacher repertoire that the app lacks | M | Done |
 | 2 | Check the nasality score against your ear: rate replayed takes at home, then keep or drop the score | The score has never been validated | M | Open |
-| 2 | Weak-note map, and practice aimed at your weak notes | The best idea from other apps | M | Open |
+| 2 | Weak-note map, and practice aimed at your weak notes | The best idea from other apps | M | Done |
 | 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Open |
 | 2 | Old take against new take, side by side | Hearing progress across weeks | S | Done |
-| 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | In progress |
+| 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | Done |
 | 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Open |
 | 3 | Ear training by voice | Common in other apps | M | Open |
 | 3 | Home mode with a live pitch graph | Visual feedback is the kind that lasted in the research | M | Open |

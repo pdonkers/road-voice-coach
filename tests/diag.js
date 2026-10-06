@@ -16,7 +16,7 @@ const secs=+(process.argv[2]||60);
   await p.waitForFunction(()=>S.canSkip&&stageName!=="Starting",null,{timeout:60000}).catch(()=>{});
   await p.evaluate(()=>doSkip());
   await p.waitForTimeout(secs*500);
-  await p.click('#goBtn');await p.waitForTimeout(1500);
+  await p.click('#goBtn');await p.waitForTimeout(300);await p.click('#goBtn');await p.waitForTimeout(1500); // the first Stop starts the cool-down, the second stops at once
   const log=await p.evaluate(()=>JSON.parse(localStorage.getItem('rvc_diag')));
   const s=log[log.length-1];
   const ends={};s.takes.forEach(x=>ends[x.end]=(ends[x.end]||0)+1);
