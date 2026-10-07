@@ -1,0 +1,12 @@
+{
+  "name": "road-voice-coach",
+  "private": true,
+  "description": "Test tooling for Road Voice Coach. The app itself has no build step.",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:quick": "node tests/run-all.js --quick"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

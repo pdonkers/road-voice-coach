@@ -50,7 +50,7 @@ Fixed requirements from Paul: press Start once and never touch the screen again;
 - Data on the phone only: localStorage keys `rvc_data` (including the per-note map `notes`), `rvc_profile`, `rvc_history`, `rvc_days`, `rvc_sung`, `rvc_rangeDate`, `rvc_diag`, `rvc_nasRate` and the settings; IndexedDB `rvc` (stores `notes` and `clips`).
 - Hosting constraint: the microphone needs HTTPS, which is why the app is on GitHub Pages; a Claude artifact cannot use the microphone.
 - Untested on a real phone: the 5 Oct listening fix on the road, running with the phone locked or in the background (a Chromium issue reports the mic stopping about 2 minutes after Chrome is backgrounded on some setups), whether the phone's text-to-speech keeps speaking from the background, steering-wheel media buttons, hiss timing and nasality score over road noise, hum detection with the 340 Hz filter.
-- Testing so far: headless Chromium runs with a simulated microphone, including with timers throttled to 1 Hz. The scripts are in `tests/`.
+- Testing so far: headless Chromium runs with a simulated microphone, including with timers throttled to 1 Hz. The scripts are in `tests/`. `npm test` (`tests/run-all.js`) runs all of them in turn against a small built-in static server, decoding the simulated recordings first with ffmpeg, and prints a summary table; it fails on a non-zero exit code, a non-zero error count, a failed check or a timeout. `.github/workflows/tests.yml` runs it on every push and pull request to `main` (Ubuntu, Node 20, Chromium from Playwright; `tests/out/` is kept as an artifact when it fails). Still headless Chromium with a simulated microphone, so it says nothing about the phone or the car.
 
 ## What the evidence says (feedback, models, difficulty)
 

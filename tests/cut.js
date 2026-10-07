@@ -1,5 +1,5 @@
 const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/playwright');
-const [port,wav,lag]=[process.argv[2],process.argv[3],+process.argv[4]];
+const [port,wav,lag]=[process.argv[2]||process.env.PORT||8765,process.argv[3],+process.argv[4]];
 (async()=>{
   const b=await chromium.launch({args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--use-file-for-fake-audio-capture='+__dirname+'/audio/'+wav,'--autoplay-policy=no-user-gesture-required']});
   const ctx=await b.newContext({permissions:['microphone']});const p=await ctx.newPage();

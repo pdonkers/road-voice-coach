@@ -13,7 +13,7 @@ const launch=async(speed=SPEED)=>{
   await p.addInitScript(sp=>{window.__speed=sp;window.__say=[];
     const ss={speak(u){if(u.text)window.__say.push(u.text);setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},speed);
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   await p.evaluate(()=>{store.set("profile",{home:55,low:45,high:64});store.set("rangeDate",today())});
   return {b,p};
 };
@@ -238,4 +238,5 @@ const refRho=(a,b)=>{const rk=v=>v.map(x=>v.filter(y=>y<x).length+(v.filter(y=>y
 
   console.log(fails?`${fails} FAILED`:'ALL PASSED');
   console.log('page errors:',errs);
+  process.exitCode=(fails||errs)?1:0;
 })();

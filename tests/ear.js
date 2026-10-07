@@ -13,7 +13,7 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
   await p.addInitScript(sp=>{window.__speed=sp;window.__say=[];
     const ss={speak(u){if(u.text)window.__say.push(u.text);setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},SPEED);
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   await p.evaluate(()=>{store.set("profile",{home:55,low:45,high:64});store.set("rangeDate",today())});
 
   // ---- 1. the generators: what is played, what the answer is, and how the levels differ
@@ -113,7 +113,7 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
     await q.addInitScript(sp=>{window.__speed=sp;window.__say=[];
       const ss={speak(u){if(u.text)window.__say.push(u.text);setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
       Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},SPEED);
-    await q.goto('http://localhost:8765/index.html');
+    await q.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
     await q.evaluate(()=>{store.set("profile",{home:55,low:45,high:64});store.set("rangeDate",today())});
     const blk=async(L,seen)=>q.evaluate(async([L,seen])=>{
       if(!S.running){S.running=true;S.stop=false;S.mode="session";await openMic();await loadBank();await calibrate(800);S.lat=100}
@@ -164,7 +164,7 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
     await q.addInitScript(sp=>{window.__speed=sp;window.__say=[];
       const ss={speak(u){if(u.text)window.__say.push(u.text);setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
       Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},SPEED);
-    await q.goto('http://localhost:8765/index.html');
+    await q.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
     await q.evaluate(()=>{store.set("profile",{home:55,low:45,high:64});store.set("rangeDate",today());store.set("len",20);store.set("focus","none");store.set("sungMax",0);
       D.sk=2;D.rotP=1;saveD();earTrain=async()=>{window.__ear={stage:ui.stage.textContent,sk:D.sk};await sleep(500)}});
     await q.click('#goBtn');
@@ -177,4 +177,5 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
     await b3.close();
   }
   console.log(`\n${fails?fails+' FAILED':'all passed'} | page errors: ${errs}`);
+  process.exitCode=(fails||errs)?1:0;
 })();

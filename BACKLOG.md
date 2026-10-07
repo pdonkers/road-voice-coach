@@ -124,7 +124,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 1 | Natural coach voice from pre-generated speech | The phone voice is robotic and may stop when the app is in the background | L | Open |
 | 1 | Test running in the background and with the phone locked | Unverified; the result decides whether a native Android wrapper is needed | S | Needs Paul |
 | 1 | Backup and export of your data | Range, history, takes and starred cues live on one phone | S | Done |
-| 1 | Automated tests in the repository | Each fix so far has risked breaking something else | M | In progress |
+| 1 | Automated tests in the repository | Each fix so far has risked breaking something else | M | Done |
 | 2 | Transfer step: after a technique block, sing a song phrase on "ah" or "mum" with the same cue, then with the words | Standard teaching practice; technique work does not reach songs yet | M | Done |
 | 2 | Teacher-recorded examples for nasality, sing-ah and onsets | No open recording covers them | S | Needs Paul |
 | 2 | More nasality exercises from teachers: hold "hung", "uh" opening to "ah", puffed cheeks, breathing in on a "k", dopey tone | Your main goal, and more variety | S | Done |

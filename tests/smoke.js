@@ -17,7 +17,7 @@ const speed=+process.argv[2]||3, secs=+process.argv[3]||150, seed=process.argv[4
       localStorage.setItem('rvc_data',JSON.stringify({lv:{pm:2,sc:2,iv:1,lt:1},res:{},seen:{pm:1,sc:1,iv:1},vow:{ee:{n:8,sum:-240,abs:260},ah:{n:9,sum:60,abs:120},oo:{n:7,sum:170,abs:200}},vi:2,sk:1,rot:1,phr:1,dic:0,song:{s:0,ph:2},best:{hiss:13,hold:12}}));
     }
   },{speed,seed,throttle});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   await p.evaluate(()=>{new MutationObserver(()=>console.log('@STAGE '+document.getElementById('stage').textContent)).observe(document.getElementById('stage'),{childList:true,characterData:true,subtree:true})});
   await p.click('#goBtn');
   const third=secs/3;
@@ -39,5 +39,6 @@ const speed=+process.argv[2]||3, secs=+process.argv[3]||150, seed=process.argv[4
   require('fs').writeFileSync(__dirname+'/out/log_'+shot+'.txt',logs.join('\n'));
   console.log(JSON.stringify(info));
   console.log('errors:',errs);
+  if(errs)process.exitCode=1;
   await b.close();
 })();

@@ -14,7 +14,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
     await p.addInitScript(()=>{window.__speed=6;
       const ss={speak(u){if(u.text)console.log('@SAY '+u.text);Promise.resolve().then(()=>u.onend&&u.onend())},cancel(){},getVoices(){return[]},onvoiceschanged:null};
       Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})});
-    await p.goto('http://localhost:8765/index.html');return p;
+    await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');return p;
   };
   const sayFrom=i=>logs.slice(i).filter(x=>x.startsWith('@SAY ')).map(x=>x.slice(5));
 
@@ -307,5 +307,6 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
 
   console.log(fails?`FAILED: ${fails}`:'ALL PASS');
   console.log('page errors:',errs);
+  process.exitCode=(fails||errs)?1:0;
   await b.close();
 })();

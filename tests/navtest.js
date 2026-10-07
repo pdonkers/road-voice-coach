@@ -3,7 +3,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   const b=await chromium.launch({args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
   const ctx=await b.newContext({viewport:{width:412,height:900},permissions:['microphone']});
   const p=await ctx.newPage();let errs=0;p.on('pageerror',e=>{errs++;console.log('PAGEERROR',e.message)});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   const st=async l=>console.log(l,'| start visible:',await p.isVisible('#goBtn'),'| current:',await p.getAttribute('.links button[aria-current]','id'),'| open:',await p.evaluate(()=>panels.filter(x=>!document.getElementById(x).hidden).join(',')||'none'));
   await st('home');
   await p.click('#progBtn');await st('progress');await p.screenshot({path:__dirname+'/out/nav_prog.png'});
@@ -18,5 +18,6 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   await p.click('#homeBtn');await p.waitForTimeout(600);await st('home from home practice');console.log('big button:',await p.textContent('#goBtn'),'| stage:',await p.textContent('#stage'),'| graph hidden:',!(await p.isVisible('#hpCv')));
   console.log('nav fits at 412 px:',await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll('.links button')].every(x=>x.getBoundingClientRect().right<=innerWidth)),'| errors',errs);
   await p.screenshot({path:__dirname+'/out/nav_home.png'});
+  if(errs){console.log('FAIL page errors:',errs);process.exitCode=1}
   await b.close();
 })();

@@ -12,7 +12,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   await p.addInitScript(()=>{window.__speed=4;
     const ss={speak(u){if(u.text)console.log('@SAY '+u.text);Promise.resolve().then(()=>u.onend&&u.onend())},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   const ok=(name,cond,detail="")=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL ')+name+(detail?'  ('+detail+')':''))};
   // the lines logged between a marker and the next one, split into what was said and which reps ran
   const part=async m=>{await p.waitForTimeout(250);const i=logs.indexOf('@MARK '+m);let j=logs.findIndex((l,k)=>k>i&&l.startsWith('@MARK '));if(j<0)j=logs.length;
@@ -172,5 +172,6 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
 
   console.log('failed checks:',fails);
   console.log('page errors:',errs);
+  process.exitCode=(fails||errs)?1:0;
   await b.close();
 })();

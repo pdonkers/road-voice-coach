@@ -4,6 +4,19 @@ Companion to [research.md](research.md) (research and build notes). Newest first
 
 The assessment and prioritized backlog are in [BACKLOG.md](../BACKLOG.md). The working copy is the Claude Doc "Road Voice Coach: assessment and backlog" (https://claude.ai/code/artifact/48816687-019b-4b0f-85eb-14495b2ef7ce, private to Paul). When a backlog item is built, update the status in the doc and re-export it to `BACKLOG.md`, replacing the byline line.
 
+## 7 Oct 2026 (no app change, version label stays 2026-10-07.6): automated tests (no app change)
+
+One backlog item, "Automated tests in the repository". The app is unchanged.
+
+Changes:
+- `package.json` (private; `playwright` as the only dev dependency; scripts `test` and `test:quick`) and a committed `package-lock.json`; `node_modules/` is ignored.
+- `tests/run-all.js`: decodes `tests/audio/*.opus` with ffmpeg when a WAV is missing (clear message if ffmpeg is not installed), serves the repo with Node's `http` module on port 8765 (or uses a server already answering there; `PORT` overrides, and every script now reads it), runs the 21 test runs below in turn with fixed arguments, keeps each output in `tests/out/<name>.log`, prints a summary table and exits non-zero on any failure. A run fails on a non-zero exit code, a non-zero `page errors` or `errors` count, a failure marker (`FAIL`, `N FAILED`, `checks failed`, `failed checks`, `RESTORE MISMATCH`, `TIMEOUT`, `PAGEERROR`), a timeout, or a missing summary line. `--quick` skips `blocks.js` and the 20-minute length run; script names after the options run only those. `timing.js` (a measurement) and `filt*.js` (reference simulations) are not part of it.
+- `.github/workflows/tests.yml`: on push and pull request to `main`, Ubuntu with Node 20: ffmpeg from apt, `npm ci`, `npx playwright install --with-deps chromium`, `npm test`; `tests/out/` is uploaded as an artifact when it fails.
+- The scripts now set a non-zero exit code on failure (`ear`, `focus`, `home`, `limits`, `progress`, `songs`, `technique`, `backup`, `blocks`, `diag`, `later`, `length`, `smoke`, `navtest`) or gained a few checks where they only printed numbers (`own`, `pwa`, `realtest`, and `blocks` fails when a block throws).
+- Two test bugs found by running everything on a clean setup, neither an app bug: `pwa.js` loaded `/index.html`, which the service worker has not saved on first load (the installed app starts at `/`), so the offline reload failed; it now loads `/`. `progress.js` pressed Stop once after a session past its first block, but the first press starts the cool-down (since the two-step Stop), so the practice day was not yet recorded when it checked; it now presses again when the session is still running.
+
+Tested in headless Chromium only (and on Windows, with a local static server; the GitHub Actions run on Ubuntu starts when this is pushed and has not been seen yet): `npm test` twice in a row, 21 of 21 passed both times (about 30 minutes each; the first run failed on the `progress.js` test bug above, which was then fixed and the whole suite run again), 0 page errors. Nothing flaky was seen apart from that. As before, none of it was tested on the phone or in the car.
+
 ## 7 Oct 2026 (version label 2026-10-07.6): more songs, your own songs, songs that fit your range
 
 One backlog item.

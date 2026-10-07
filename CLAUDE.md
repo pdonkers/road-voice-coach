@@ -16,7 +16,7 @@ A hands-free singing coach for the car, built for one user, Paul. He presses Sta
 
 ## After every change to the app
 
-1. Run the relevant scripts in `tests/`; always `blocks.js` (a full pass through every block, no page errors).
+1. Run `npm test` (every script in `tests/`, about 30 minutes; `npm run test:quick` skips `blocks.js` and the 20-minute length run, about 22 minutes, then run the scripts the change touches, and always `blocks.js`, a full pass through every block with no page errors). The same run happens on GitHub Actions after every push to `main`; check that it is green.
 2. Raise the version label on the home screen in `index.html` (`Version YYYY-MM-DD.N`). Paul uses it to see which build his phone has loaded.
 3. If the list of files to cache changed, raise `CACHE` in `sw.js`.
 4. Commit and push to `main`. GitHub Pages rebuilds in about a minute. Check that the live page shows the new version label; fetch it with the web fetch tool if the shell cannot reach github.io.

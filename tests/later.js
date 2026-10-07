@@ -9,7 +9,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
     const si=window.setInterval.bind(window);window.setInterval=(f,ms,...a)=>si(f,Math.max(1000,ms||0),...a);
     const ss={speak(u){if(u.text)console.log('@SAY '+u.text);Promise.resolve().then(()=>u.onend&&u.onend())},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   await p.screenshot({path:__dirname+'/out/home.png'});
   console.log('button label:',await p.textContent('#laterBtn'));
   await p.selectOption('#delaySel','5');console.log('after select:',await p.textContent('#laterBtn'));
@@ -23,5 +23,6 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   await p.click('#laterBtn');await p.waitForTimeout(1200);await p.click('#skipBtn');await p.waitForTimeout(1500);
   console.log('after skip stage:',await p.textContent('#stage'));
   await p.click('#goBtn');await p.waitForTimeout(500);
+  if(errs){console.log('FAIL page errors:',errs);process.exitCode=1}
   await b.close();
 })();

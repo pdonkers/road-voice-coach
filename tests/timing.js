@@ -10,7 +10,7 @@ const speed=+(process.argv[2]||6);
   await p.addInitScript(sp=>{window.__speed=sp;
     const ss={speak(u){setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},speed);
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   const res=await p.evaluate(async()=>{
     const out=[];
     S.running=true;S.stop=false;S.mode="session";await openMic();

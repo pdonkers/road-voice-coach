@@ -1,12 +1,34 @@
 # Tests
 
-These are the working scripts used to check the app after each change. They are run by hand; nothing runs automatically yet (see "Automated tests in the repository" in `BACKLOG.md`). They test in a headless browser with a simulated microphone, which is not the same as a phone in a car.
+These are the scripts used to check the app after each change. `npm test` runs all of them, and GitHub Actions runs the same command after every push to `main`. They test in a headless browser with a simulated microphone, which is not the same as a phone in a car.
 
-## Setup
+## Run everything
 
-1. Serve the repo: `python3 -m http.server 8765` from the repo root.
-2. Decode the simulated microphone recordings: `tests/prepare.sh` (needs ffmpeg; writes `tests/audio/*.wav` and creates `tests/out/`, both ignored by git).
-3. The scripts need Playwright with Chromium. They look for it at `/opt/npm-tools/node_modules/playwright`; set `PLAYWRIGHT=playwright` (or another path) to use a different install.
+1. `npm install` (Playwright, from `package.json`; `package-lock.json` is committed and CI uses `npm ci`).
+2. `npx playwright install chromium` (once).
+3. ffmpeg on the path (once; `winget install ffmpeg`, `brew install ffmpeg` or `sudo apt-get install -y ffmpeg`). It decodes the simulated microphone recordings.
+4. `npm test`.
+
+`npm test` is `node tests/run-all.js`. It does the following:
+- Decodes `tests/audio/*.opus` to WAV when a WAV is missing (what `prepare.sh` does) and makes `tests/out/`.
+- Serves the repo itself on port 8765 (or the `PORT` environment variable, which every script reads); if something already serves `index.html` there, such as `python3 -m http.server 8765`, it uses that. If the port is taken by something else, it picks a free one.
+- Runs each script below in turn, with fixed arguments, and writes each one's output to `tests/out/<name>.log`.
+- Judges each script by its exit code, by any error count it prints (`page errors: N`, `errors: N`), by its failure markers (`FAIL`, `N FAILED`, `checks failed: N`, `failed checks: N`, `RESTORE MISMATCH`, `TIMEOUT`, `PAGEERROR`) and by the summary line it should print. It then prints a summary table and exits non-zero if anything failed.
+- Leaves out `timing.js` (a measurement) and `filt*.js` (reference simulations).
+
+Options: `npm run test:quick` skips `blocks.js` and the 20-minute length run; `node tests/run-all.js songs home` runs only the named scripts.
+
+A full run takes about 30 minutes and a quick one about 22. Run the scripts on their own (below) while working on one feature.
+
+## CI
+
+`.github/workflows/tests.yml` runs on every push and pull request to `main`: Ubuntu, Node 20, ffmpeg from apt, `npm ci`, `npx playwright install --with-deps chromium`, `npm test`. When it fails, `tests/out/` (the logs and screenshots) is uploaded as the `test-output` artifact. The scripts launch Chromium with fake-media flags, which works headless on Linux.
+
+## Running one script
+
+1. Serve the repo: `python3 -m http.server 8765` from the repo root, or let `run-all.js` do it.
+2. Run `tests/prepare.sh` once, or `npm test`, so `tests/audio/*.wav` exist (both are ignored by git, as is `tests/out/`).
+3. The scripts find Playwright in `node_modules`. Set `PLAYWRIGHT` to another path to use a different install.
 
 The app reads `window.__speed` to run its waits faster, and the scripts replace the phone's speech with a stub that logs each sentence.
 
@@ -29,6 +51,7 @@ The app reads `window.__speed` to run its waits faster, and the scripts replace 
 | `ear.js` | Ear training by voice: the generators for the three exercises at each level (higher or lower, the missing note, interval by ear; narrow ranges too), the sung answer judged within 70 cents with octaves folded (strict for the octave interval), the one-line verdicts, the retry with the right note, level steps up and down, the whole block on the simulated microphone (items per level, first-time explanations against the short lines, nothing in `D.notes` or the cents-off score), the rotation swell, starts, ear training, and a timed session planning and naming the block | `node tests/ear.js 10` (speed; about 3 minutes) |
 | `home.js` | Home practice: the nav button at 412 px, the live pitch graph (ring buffer fed by `tick()`, line pixels read from the canvas, green or orange against the target, neutral without one, CSS variables followed, 8-second scroll, DPR and resize), the target picker and its limits, Play note, the drone on and off and following the target, Stop on the first press with no singing time, diagnostics or practice day recorded, the Home link and nav buttons, and that a car session does not feed the graph | `node tests/home.js` (about 1 minute) |
 | `songs.js` | Songs: every built-in song (4 phrases, n and d of equal length, cues of 5 words at most, spans), the range fit, know / teach me / skip per song and their defaults, the rotation (least sung first, known before teach, a song in progress carries on, an old saved state), teaching a song (lines played twice, becoming known after a good whole-song take, next pressed early marking it teach), the transfer step using known songs only, the cue wording in song practice and the transfer step, the own-song format (valid and invalid inputs, error messages naming phrase and token), the Guide form (save, preview, duplicate name, delete, no sideways scroll at 412 px), the backup, and a whole own song through `song()` | `node tests/songs.js` (about 1 minute) |
+| `run-all.js` | Runs all of the above in turn (see Run everything); not a check of the app | `npm test` or `npm run test:quick` |
 | `later.js` | Delayed start: countdown, Skip, and the session starting after the wait | `node tests/later.js` |
 | `navtest.js` | Home link, Back buttons and the separate views, including the mic test and home practice (the Home link ends both; six nav buttons fit at 412 px) | `node tests/navtest.js` |
 | `own.js` | The own-voice note bank: an in-tune note is saved, reloaded and reused as the model note | `node tests/own.js` |

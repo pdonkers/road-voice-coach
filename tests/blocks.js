@@ -8,7 +8,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   await p.addInitScript(()=>{window.__speed=3;
     const ss={speak(u){if(u.text)console.log('@SAY '+u.text);Promise.resolve().then(()=>u.onend&&u.onend())},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   const res=await p.evaluate(async()=>{
     const out=[];
     try{
@@ -31,5 +31,6 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   await p.screenshot({path:__dirname+'/out/guide.png',fullPage:true});
   require('fs').writeFileSync(__dirname+'/out/log_blocks.txt',logs.join('\n'));
   console.log('page errors:',errs,'| say lines:',logs.filter(l=>l.startsWith('@SAY')).length);
+  if(errs||res.out.some(x=>x.startsWith('ERR'))){console.log('FAIL a block threw');process.exitCode=1}
   await b.close();
 })();

@@ -2,7 +2,8 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
 (async()=>{
   const b=await chromium.launch();const ctx=await b.newContext();const p=await ctx.newPage();let errs=[];
   p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('http://localhost:8765/index.html');
+  // the installed app starts at the root, which is the page the service worker saves on first load (index.html is not)
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/');
   await p.waitForTimeout(1500);
   const r=await p.evaluate(async()=>{
     const reg=await navigator.serviceWorker.getRegistration();
@@ -15,6 +16,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   let inst=null;try{inst=await cdp.send('Page.getInstallabilityErrors')}catch(e){inst=e.message}
   console.log(JSON.stringify(r));console.log('manifest errors:',JSON.stringify(man.errors),'installability errors:',JSON.stringify(inst.installabilityErrors||inst));
   // offline reload
-  await ctx.setOffline(true);await p.reload();console.log('offline title:',await p.title(),'| page errors',errs.length);
+  await ctx.setOffline(true);await p.reload();const off=await p.title();console.log('offline title:',off,'| page errors',errs.length);
+  if(errs.length||!r.sw||!off||man.errors.length){console.log('FAIL pwa');process.exitCode=1}
   await b.close();
 })();

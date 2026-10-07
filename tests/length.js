@@ -11,7 +11,7 @@ const mins=+(process.argv[2]||5),speed=+(process.argv[3]||8);
   await p.addInitScript(sp=>{window.__speed=sp;
     const ss={speak(u){if(u.text)console.log('@SAY '+u.text);setTimeout(()=>u.onend&&u.onend(),(300+(u.text||"").length*70)/sp)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},speed);
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   // rotation for each setting
   const rots=await p.evaluate(()=>{
     const names=()=>techRotation().map(t=>t[1].split(" ")[0]).join(",");const out={};
@@ -37,5 +37,6 @@ const mins=+(process.argv[2]||5),speed=+(process.argv[3]||8);
   console.log('last lines:',said.slice(-2).join(' | '));
   console.log('learned:',JSON.stringify(r.bmin));
   console.log('page errors:',errs);
+  if(errs)process.exitCode=1;
   await b.close();
 })();

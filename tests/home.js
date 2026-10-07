@@ -11,7 +11,7 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
   await p.addInitScript(()=>{window.__say=[];
     const ss={speak(u){if(u.text)window.__say.push(u.text);setTimeout(()=>u.onend&&u.onend(),30)},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   await p.evaluate(()=>{store.set("profile",{home:55,low:45,high:64});store.set("rangeDate",today());store.set("sung",{d:today(),s:100});store.set("diag",[]);store.set("days",[])});
   const idle=ms=>p.waitForFunction(()=>!S.running,null,{timeout:ms,polling:200}).then(()=>true,()=>false);
 
@@ -132,5 +132,6 @@ const ok=(name,cond,detail)=>{if(!cond)fails++;console.log((cond?'PASS ':'FAIL '
   await p.click('#goBtn');
   ok('session: first Stop press before the first block ends stops at once (as before)',await idle(15000)&&await p.evaluate(()=>ui.stage.textContent)==='Stopped');
   console.log(`\n${fails?fails+' FAILED':'all passed'} | page errors: ${errs}`);
+  process.exitCode=(fails||errs)?1:0;
   await b.close();
 })();

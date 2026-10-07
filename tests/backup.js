@@ -4,7 +4,7 @@ const fs=require('fs');
 (async()=>{
   const b=await chromium.launch();const ctx=await b.newContext({viewport:{width:412,height:900},acceptDownloads:true});
   const p=await ctx.newPage();let errs=0;p.on('pageerror',e=>{errs++;console.log('PAGEERROR',e.message)});
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   const before=await p.evaluate(async()=>{
     store.set("history",[{d:"2026-10-01",err:31,min:20}]);store.set("profile",{low:43,high:62,home:52});store.set("nasal","more");D.tips["n-yawn"]={n:3,star:true};saveD();
     const sr=48000,pcm=new Float32Array(sr*2);for(let i=0;i<pcm.length;i++)pcm[i]=0.4*Math.sin(2*Math.PI*220*i/sr);
@@ -26,10 +26,11 @@ const fs=require('fs');
       clips:c.length,label:c[0]&&c[0].label,notes:n.length,noteKey:n[0]&&n[0][0],s:c[0]&&c[0].pcm[1000]}});
   console.log('before',JSON.stringify(before));
   console.log('after ',JSON.stringify(after));
-  console.log(after.hist===1&&after.nasal==="more"&&after.star&&after.clips===before.clips&&after.notes===1&&Math.abs(after.s-before.s)<1e-3?'RESTORE OK':'RESTORE MISMATCH');
+  const restored=after.hist===1&&after.nasal==="more"&&after.star&&after.clips===before.clips&&after.notes===1&&Math.abs(after.s-before.s)<1e-3;
+  console.log(restored?'RESTORE OK':'RESTORE MISMATCH');
   // a file that is not a backup is refused
   fs.writeFileSync(__dirname+'/out/not-backup.json','{"hello":1}');
   await p.click('#setBtn');await p.setInputFiles('#bkFile',__dirname+'/out/not-backup.json');await p.waitForTimeout(300);
-  console.log('wrong file:',await p.textContent('#bkMsg'));
-  console.log('page errors:',errs);await b.close();
+  const wrong=await p.textContent('#bkMsg');console.log('wrong file:',wrong);
+  console.log('page errors:',errs);process.exitCode=(!restored||errs||!wrong.trim())?1:0;await b.close();
 })();

@@ -14,7 +14,7 @@ const launch=async(speed=6)=>{
   await p.addInitScript(sp=>{window.__speed=sp;window.__say=[];
     const ss={speak(u){window.__say.push(u.text);Promise.resolve().then(()=>u.onend&&u.onend())},cancel(){},getVoices(){return[]},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:ss,configurable:true})},speed);
-  await p.goto('http://localhost:8765/index.html');
+  await p.goto('http://localhost:'+(process.env.PORT||8765)+'/index.html');
   return {b,p};
 };
 (async()=>{
@@ -140,6 +140,7 @@ const launch=async(speed=6)=>{
   const greet=await p.evaluate(()=>window.__say.filter(x=>x).slice(0,3));
   ok('streak line right after the greeting',/^Hi, I'm your singing coach/.test(greet[0])&&greet[1]==='Day three in a row.',JSON.stringify(greet));
   await p.click('#goBtn');await p.waitForTimeout(1500);
+  if(await p.evaluate(()=>S.running)){await p.click('#goBtn');await p.waitForTimeout(1500)} // past the first block the first Stop starts the cool-down; the second stops
   const d1=await p.evaluate(()=>store.get("days",[]));
   ok('session of 3 simulated minutes or more records today',d1.length===3&&d1[2]===sOf(todayN),JSON.stringify(d1));
   ok('sorted and unique',await p.evaluate(()=>{noteDay();noteDay();const d=store.get("days",[]);return d.length===3&&d.join()===[...d].sort().join()}));
@@ -153,4 +154,5 @@ const launch=async(speed=6)=>{
   await b.close();
   console.log('checks failed:',fails);
   console.log('page errors:',errs);
+  process.exitCode=(fails||errs)?1:0;
 })();
