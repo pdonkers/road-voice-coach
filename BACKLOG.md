@@ -1,20 +1,19 @@
 # Road Voice Coach: assessment and backlog
 
-Last updated 6 October 2026. This is a copy of the working document; the app itself is described in [README.md](README.md).
+Last updated 7 October 2026. This is a copy of the working document; the app itself is described in [README.md](README.md).
 
 ## Summary
 
 The app teaches well enough that you keep using it, but it does not yet listen reliably on the road and it can demonstrate a real voice for only about half the topics, not for nasality. Those two gaps matter more than any missing feature.
 
-The five things to do next, in order:
+Everything on the backlog that can be built without you was built on 6 and 7 October (version 2026-10-07.7). What is left needs you, in this order:
 
-1. Confirm the 5 Oct listening fix on a drive; the diagnostics page that logs every take is built (version 2026-10-06.3), so the drive now gives data.
-2. Record real examples for nasality, sing-ah and onsets with a voice teacher; the VocalSet examples for the other topics went in on 6 Oct.
-3. Add session length and focus settings.
-4. Replace the phone's speech with a natural coach voice.
-5. Add a transfer step that carries each technique into a song phrase.
-
-Three items wait on you: a drive to confirm the listening fix, a test with the phone locked, and whether you want one lesson with a voice teacher to record the nasality examples.
+1. A drive with the new build, then Settings, Listening diagnostics, Copy, and paste it into a chat, so the listening on the road can be confirmed or fixed from data.
+2. A session with the phone locked, to see whether Android keeps the microphone running.
+3. Try the steering-wheel buttons once, then keep or remove them.
+4. At home, rate about ten nasality takes on the Progress page, so the nasality measure can be kept or dropped.
+5. Decide on a natural coach voice: free offline voices generated on your computer, or a paid voice service.
+6. Decide whether to book one lesson with a voice teacher to record the nasality, sing-ah and onset examples.
 
 ## Current state
 
