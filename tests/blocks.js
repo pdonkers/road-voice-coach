@@ -16,7 +16,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
       Object.assign(S,{scores:[],biases:[],round:1,misses:0,tip:{},nasScores:[],sessionStart:performance.now(),loudAt:-1e9,repN:0,fbEvery:1,done:0});
       await loadBank();await calibrate(800);S.lat=100;
       const pr={home:55,low:45,high:64};
-      for(const [n,f] of [["Warm-up",warmup],["Nasality",nasality],["Vowels",vowels],["Breath",breath],["Onsets",onset],["Registers",registers],["Clear tone",clearTone],["Smooth line",legato],["Release",release],["Sounds with a job",sounds],["Swell",swell],["Starts",starts],["Pitch",q=>pitchMatch(q,2)]]){
+      for(const [n,f] of [["Warm-up",warmup],["Nasality",nasality],["Vowels",vowels],["Breath",breath],["Onsets",onset],["Registers",registers],["Clear tone",clearTone],["Smooth line",legato],["Release",release],["Sounds with a job",sounds],["Swell",swell],["Starts",starts],["Ear training",earTrain],["Pitch",q=>pitchMatch(q,2)]]){
         console.log('@BLOCK '+n);const t0=performance.now();await block(n,()=>f(pr),{sum:false});out.push(n+' '+Math.round((performance.now()-t0)/100)/10+'s');
       }
       S.round=2;S.tip={};console.log('@BLOCK Nasality round2 new session');await block("Nasality",()=>nasality(pr),{sum:false});

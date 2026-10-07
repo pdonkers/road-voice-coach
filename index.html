@@ -30,7 +30,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 var(--display)
 header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 h1{font-size:1.25rem;font-weight:700;margin:0;letter-spacing:.01em}
 h1 span{color:var(--amber)}
-.links{display:flex;gap:14px;flex-wrap:wrap}
+.links{display:flex;gap:2px 12px;flex-wrap:wrap}
 .links button[aria-current="page"]{color:var(--fg);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--amber)}
 .wrap.panel-open .home{display:none}
 .back{align-self:flex-start}
@@ -121,6 +121,15 @@ details th{color:var(--fg)}
 .cue p{margin:0;font-size:.85rem;color:var(--dim)}
 .cue small{font:.72rem var(--mono);color:var(--dim)}
 .cue.new b{color:var(--dim)}
+/* home practice: live pitch graph and the target controls */
+.hp{display:flex;flex-direction:column;gap:12px}
+.wrap.hpmode .tun{display:none}
+.hp canvas{display:block;width:100%;height:220px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.hpctl{align-items:center;flex-wrap:nowrap}
+.hpctl b{font:700 1.4rem var(--display);min-width:3.2ch;text-align:center;font-variant-numeric:tabular-nums}
+.hpctl .btn{flex:1 1 0;min-width:0;padding:12px 8px;background:var(--panel)}
+.hpctl .btn.sm{flex:0 0 48px}
+.hpctl .btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 @media (prefers-reduced-motion:reduce){.tuner .needle,.level i{transition:none}}
 </style>
 </head>
@@ -131,6 +140,7 @@ details th{color:var(--fg)}
     <nav class="links" aria-label="Sections">
       <button id="homeBtn" type="button" aria-current="page">Home</button>
       <button id="testBtn" type="button">Mic test</button>
+      <button id="hpBtn" type="button">Home practice</button>
       <button id="progBtn" type="button">Progress</button>
       <button id="guideBtn" type="button">Guide</button>
       <button id="setBtn" type="button">Settings</button>
@@ -146,11 +156,23 @@ details th{color:var(--fg)}
     <div class="note"><small>Target</small><b id="target">–</b></div>
     <div class="note you"><small>You</small><b id="you">–</b></div>
   </div>
-  <div class="home">
+  <div class="home tun">
     <div class="tuner" aria-hidden="true"><div class="zone"></div><div class="mid"></div><div class="needle" id="needle"></div></div>
     <div class="scale"><span>−50¢ flat</span><span>in tune</span><span>sharp +50¢</span></div>
   </div>
-  <div class="level home" aria-hidden="true"><i id="lvl"></i></div>
+  <div class="level home tun" aria-hidden="true"><i id="lvl"></i></div>
+
+  <div class="hp home" id="hpBox" hidden>
+    <canvas id="hpCv" role="img" aria-label="Live pitch graph: the last 8 seconds of your pitch against the target note"></canvas>
+    <div class="row hpctl">
+      <button class="btn sm" id="hpDn" type="button" aria-label="Target note one semitone down">−</button>
+      <b id="hpNote" aria-live="polite">–</b>
+      <button class="btn sm" id="hpUp" type="button" aria-label="Target note one semitone up">+</button>
+      <button class="btn" id="hpPlay" type="button">Play note</button>
+      <button class="btn" id="hpDrone" type="button" aria-pressed="false">Drone: off</button>
+    </div>
+    <p class="hint">Green: within 25 cents of the target. Use headphones with the drone, or the microphone hears it too.</p>
+  </div>
 
   <div class="row ctl home" id="ctl" hidden>
     <button class="btn" id="replayBtn" type="button">Replay take</button>
@@ -276,7 +298,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.4</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.5</p>
   </div>
 </div>
 
@@ -534,7 +556,7 @@ function analyseHold(frames,target,o={}){
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
-const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{},lastT:{}});
+const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1,eh:1,em:1,ei:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{},lastT:{}});
 let D=Object.assign(D0(),store.get("data",{}));
 const saveD=()=>store.set("data",D);
 const idb={db:null,
@@ -692,6 +714,7 @@ function tick(){
     if(S.specMode==="hiss")f.hb=bandPower(S.sbuf,4000,9000);
   }
   if(S.frames)S.frames.push(f);
+  if(HP.on){HP.buf.push([performance.now(),m,targetMidi]);if(HP.buf.length>600)HP.buf.splice(0,100)}
   ui.lvl.style.width=Math.min(100,r*2500)+"%";
   if(m!=null){
     ui.you.textContent=nname(m);
@@ -978,7 +1001,7 @@ function band(p){
   if(hi-lo<8){lo=p.home-4;hi=p.home+5}
   return {lo,hi};
 }
-const LMAX={pm:4,sc:5,iv:5,lt:3};
+const LMAX={pm:4,sc:5,iv:5,lt:3,eh:3,em:3,ei:3};
 const lvl=k=>clamp(D.lv[k]||1,1,LMAX[k]);
 /* keep each exercise near 70 percent success: step up at 80, down at 50 */
 function result(k,ok){
@@ -1401,7 +1424,70 @@ async function starts(p){
   const {lo}=band(p);
   for(const r of [lo,lo+2,lo+3])await rep([0,4,7,4,0].map(x=>r+x),{dur:0.45,gap:0.25,scoopFocus:true,always:true,noRetry:true,own:false});
 }
-const skills=p=>[swell,starts][D.sk++%2](p);
+const skills=p=>[swell,starts,earTrain][D.sk++%3](p);
+/* ---------- ear training: the answer is sung ---------- */
+/* Three exercises, each with its own level (kinds eh, em, ei in D.lv) and its own "explained once" flag in D.seen. They do not go through rep(): the sung
+   note is judged against the answer note (within 70 cents, octaves forgiven as elsewhere), not against what was played, so these takes stay out of the
+   session's cents-off score and out of the weak-note map D.notes. A wrong first answer is followed by the right note and one more try. */
+const MAJ=[0,2,4,5,7,9,11,12];
+const IVN={3:"a minor third",4:"a major third",5:"a fourth",7:"a fifth",12:"an octave"};
+const EIV={1:[7,12],2:[5,7,12],3:[3,4,5,7,12]};
+/* higher or lower: the gap shrinks with the level */
+function genEh(p){
+  const {lo,hi}=band(p),g=[rnd(4,7),rnd(2,4),rnd(1,2)][lvl("eh")-1],a=rnd(lo,hi-g),h=a+g,ord=Math.random()<0.5?[a,h]:[h,a];
+  return {ans:h,other:a,ns:ord,said:"That was the lower one.",reveal:"The higher one is this.",model:()=>play(ord,0.8,0.3)};
+}
+/* the missing note: four neighbouring notes of a major scale with one of the middle two left out, so three are played with a gap; later also downwards */
+function genEm(p){
+  const {lo,hi}=band(p),L=lvl("em"),d=rnd(0,[0,2,3][L-1]),k=L===1?2:rnd(1,2),sp=MAJ[d+3]-MAJ[d],a=rnd(lo,hi-sp);
+  let ns=[0,1,2,3].map(i=>a+MAJ[d+i]-MAJ[d]);if(L===3&&Math.random()<0.5)ns=ns.reverse();
+  const ans=ns[k],pre=ns.slice(0,k),post=ns.slice(k+1);
+  return {ans,ns,k,reveal:"The missing note is this.",model:async()=>{await play(pre,0.6,0.06);await sleep(300);await play(post,0.6,0.06)}};
+}
+/* interval by ear: one note, then the name of the interval to sing above it. An octave is judged without folding, or the same note would pass. */
+function genEi(p){
+  const {lo,hi}=band(p),ks=EIV[lvl("ei")].filter(k=>Math.min(hi,p.high-k)>=lo),k=pick(ks.length?ks:[7]),r=rnd(lo,Math.max(lo,Math.min(hi,p.high-k)));
+  const nm=IVN[k];
+  return {ans:r+k,other:r,k,said:"That was the starting note.",strict:k===12,reveal:`${nm[0].toUpperCase()+nm.slice(1)} above is this.`,
+    model:async()=>{await play([r],1.0);await speak(D.seen.ei?`${nm[0].toUpperCase()+nm.slice(1)} above.`:`Sing the note ${nm} above.`)}};
+}
+/* one item: the model, the singer's answer, a one-line verdict; a wrong answer gets the right note and a second try. Only the first answer that was heard counts for the level. */
+async function earRep(kind,g){
+  let reveal=false,counted=false,res=null,lv="";
+  for(let k=0;k<2;k++){
+    await replayIfAsked();
+    if(k===0||!reveal)await g.model();else await play([g.ans],1.0);
+    setTarget(null);setSub("your turn");
+    const f=await listen({max:8000,wait:6000,endSil:1200});setSub("");
+    if(S.misses>=3){await waitForSinger();if(k===0){k--;continue}break}
+    const a=analyseHold(f,g.ans,{longest:true});
+    if(!a.heard){if(k===0){await speak("I didn't catch that. Once more.");continue}await speak("I didn't hear that one.");break}
+    const ok=Math.abs(g.strict?(a.single.p-g.ans)*100:a.bias)<=70;
+    if(!counted){counted=true;res={ok};const ch=result(kind,ok);lv=ch==="up"?"Stepping up a level.":ch==="down"?"I'll make this one a bit easier.":""}
+    if(ok){await speak(reveal?"That's it.":pick(["Right.","Yes.","Correct."]));break}
+    if(k===0){
+      let d=(a.single.p-g.other)*100;d-=Math.round(d/1200)*1200;
+      await speak(`Not quite. ${g.other!=null&&Math.abs(d)<=70?g.said+" ":""}${g.reveal}`);reveal=true;
+    }else await speak("Not this time. Next one.");
+  }
+  if(lv)await speak(lv);
+  return res;
+}
+async function earSet(p,kind,intro,short,gen){
+  await speak(D.seen[kind]?short:intro);
+  const n=lvl(kind)>=3?5:4;let any=false;
+  for(let i=0;i<n;i++)if(await earRep(kind,gen(p)))any=true;
+  if(any)D.seen[kind]=1;
+}
+async function earTrain(p){
+  await speak(D.seen.ear?"Ear training. Sing your answers.":"Ear training. I play notes, and you answer by singing, never by speaking.");D.seen.ear=1;
+  /* two of the three exercises per block, rotating, so the block stays about as long as the others */
+  const sets=[["eh","Higher or lower. I play two notes. Sing back the higher one.","Higher one.",genEh],
+    ["em","Missing note. I play three notes of a scale, with a gap in the middle, like do, re, fa. Sing the note that fits the gap.","Missing note.",genEm],
+    ["ei","Interval by ear. I play one note and name an interval. Sing the note that far above it.","Interval by ear.",genEi]];
+  const k=D.earK||0;D.earK=k+1;
+  for(const i of [k%3,(k+1)%3])await earSet(p,...sets[i]);
+}
 async function feel(){setSub("your turn");await listen({max:10000,wait:6000,count:false});setSub("");return S.lastTake}
 async function plainTake(m,dur=1.2){await play([m],dur);return feel()}
 async function onset(p){
@@ -1729,7 +1815,7 @@ function pickFocus(rot){
 /* typical minutes per block, measured with tests/timing.js (technique blocks include half of the 0.8 min transfer step); replaced by this phone's own averages as sessions run */
 const BLOCK_MIN={"Finding your voice":0.9,"Warm-up":2.4,"Short warm-up":1.4,"Nasality":2.5,"Clean onsets":2.2,"Registers":1.7,"Vowels":2.8,"Clear tone":2.1,
   "Smooth line":1.7,"Breath and long notes":2.7,"Loose jaw and tongue":1.8,"Sounds with a job":2.3,"Pitch matching":1.8,"Scales":1.8,"Intervals":1.9,"Mixed practice":5.5,
-  "Song":2.5,"Skills":1.5,"Free singing":1.2,"Reset":0.4,"Cool-down":0.7};
+  "Song":2.9,"Skills":1.2,"Ear training":3.2,"Free singing":1.2,"Reset":0.4,"Cool-down":0.7};
 const estMin=k=>(D.bmin&&D.bmin[k])||BLOCK_MIN[k]||2;
 function learnMin(k,m){
   diagEv(`${k} took ${m.toFixed(1)} min`);
@@ -1776,7 +1862,7 @@ async function session(){
   /* the focus blocks (both technique blocks of round 1) leave D.rotT2 alone, so the rotation carries on as if they had not happened */
   const nextTech=async f=>{if(f&&foc)return techRun(foc.t);const t=rot[D.rotT2%rot.length];D.rotT2++;await techRun(t)};
   const sayFocus=n=>speak(`Today's focus: ${foc.t[1].toLowerCase()}. `+(n>1?"You'll do it twice, and it comes first.":"It comes first."));
-  const prac=[song,skills],pracN=["Song","Skills"];S.done=done;
+  const prac=[song,skills],pracN=["Song","Skills"],pracK=i=>i===1&&D.sk%3===2?"Ear training":pracN[i];S.done=done;
   const lim=+store.get("len",0);
   /* The loops run until the time is up (timed) or forever (untimed); a Wind from the Stop button or the singing limit ends them early. Both then wind down the same way. */
   let why="end";
@@ -1795,7 +1881,7 @@ async function session(){
           {key:"Scales",pri:6,run:()=>block("Scales",()=>scales(p,3))},{key:"Intervals",pri:7,run:()=>block("Intervals",()=>intervals(p,4))});
         items.push({key:tk(1),pri:4,foc:fr,run:()=>nextTech(fr)});
         const pi=D.rotP%prac.length;
-        items.push({key:pracN[pi],pri:5,run:async()=>{D.rotP++;await block(pracN[pi],()=>prac[pi](p),{sum:pi===0})}});
+        items.push({key:pracK(pi),pri:5,run:async()=>{D.rotP++;await block(pracK(pi),()=>prac[pi](p),{sum:pi===0})}});
         items.push({key:"Free singing",pri:8,run:()=>block("Free singing",()=>freeSing(),{sum:false})});
         const plan=fitRound(items,lim-used()-WRAP,S.round===1);
         if(!plan.length)break;
@@ -1821,7 +1907,7 @@ async function session(){
         await block("Intervals",()=>intervals(p,4));
       }
       await nextTech(S.round===1);
-      {const i=D.rotP%prac.length;D.rotP++;await block(pracN[i],()=>prac[i](p),{sum:i===0})}
+      {const i=D.rotP%prac.length;D.rotP++;await block(pracK(i),()=>prac[i](p),{sum:i===0})}
       await block("Free singing",()=>freeSing(),{sum:false});
       await summary();
       await block("Reset",()=>resetVoice(),{sum:false});
@@ -1853,17 +1939,91 @@ async function countdown(min){
   finally{S.canSkip=false;S.skip=false}
   await blip();
 }
+/* ---------- home practice: a live pitch graph (never in the car: it needs the screen) ---------- */
+/* Runs like the mic test (no session, no singing time, no diagnostics). tick() adds [time, pitch, target] to HP.buf while HP.on; a requestAnimationFrame loop draws
+   the last 8 seconds, right to left, over a guide line for each semitone of the range. The line is green within 25 cents of the target (octaves folded), otherwise
+   orange, and neutral when there is no target. Colours come from the CSS variables on every frame, so the theme and a resize are followed. */
+const HP={on:false,buf:[],raf:0,drone:null,cv:$("hpCv"),p:{home:55,low:48,high:64},w:0,h:0};
+const HP_SEC=8000;
+function hpFit(){
+  const c=HP.cv,r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;if(!r.width)return false;
+  const W=Math.round(r.width*d),H=Math.round(r.height*d);if(c.width!==W||c.height!==H){c.width=W;c.height=H}
+  HP.w=r.width;HP.h=r.height;HP.d=d;return true;
+}
+function hpDraw(){
+  if(!hpFit())return;
+  const g=HP.cv.getContext("2d"),w=HP.w,h=HP.h,cs=getComputedStyle(document.documentElement),v=(k,d)=>cs.getPropertyValue(k).trim()||d,
+    line=v("--line","#24302f"),dim=v("--dim","#8a9a96"),fg=v("--fg","#e6ece9"),good=v("--good","#5fd3a0"),warn=v("--warn","#f07a5a"),amber=v("--amber","#f2b33d"),mono=v("--mono","monospace");
+  const L=30,R=8,T=8,B=8,lo=HP.p.low-1,hi=HP.p.high+1,Y=m=>T+(h-T-B)*(1-(m-lo)/(hi-lo)),now=performance.now(),X=t=>L+(w-L-R)*(1-(now-t)/HP_SEC),px=(h-T-B)/(hi-lo);
+  g.setTransform(HP.d,0,0,HP.d,0,0);g.clearRect(0,0,w,h);
+  g.textBaseline="middle";g.font=`10px ${mono}`;
+  /* the target's label always shows; the others only when there is room (note names 11 px apart or more) */
+  let ly=targetMidi!=null&&targetMidi>=HP.p.low&&targetMidi<=HP.p.high?[Y(targetMidi)]:[];
+  const room=y=>ly.every(q=>Math.abs(q-y)>=11);
+  for(let m=HP.p.low;m<=HP.p.high;m++){
+    const t=m===targetMidi,nat=!nname(m).includes("#"),y=Y(m);
+    g.strokeStyle=t?amber:line;g.lineWidth=t?2:1;g.beginPath();g.moveTo(L,y);g.lineTo(w-R,y);g.stroke();
+    if(t||((nat||px>=13)&&room(y))){if(!t)ly.push(y);g.fillStyle=t?amber:dim;g.font=`${t?"700 ":""}10px ${mono}`;g.textAlign="right";g.fillText(nname(m),L-5,y)}
+  }
+  g.save();g.beginPath();g.rect(L,0,w-L,h);g.clip();
+  g.lineWidth=3;g.lineCap="round";g.lineJoin="round";
+  const b=HP.buf;while(b.length&&now-b[0][0]>HP_SEC+500)b.shift();
+  let prev=null;
+  for(const q of b){
+    if(q[1]==null){prev=null;continue}
+    const y=Y(clamp(q[1],lo,hi)),x=X(q[0]);let col=fg;
+    if(q[2]!=null){let c=(q[1]-q[2])*100;c-=Math.round(c/1200)*1200;col=Math.abs(c)<=25?good:warn}
+    g.strokeStyle=col;g.fillStyle=col;
+    if(prev&&q[0]-prev[0]<=250){g.beginPath();g.moveTo(X(prev[0]),prev[1]);g.lineTo(x,y);g.stroke();prev=[q[0],y]}
+    else{g.beginPath();g.arc(x,y,1.5,0,7);g.fill();prev=[q[0],y]}
+  }
+  g.restore();
+}
+function hpFrame(){if(!HP.on)return;hpDraw();HP.raf=requestAnimationFrame(hpFrame)}
+function hpSet(m){
+  const p=HP.p;m=clamp(m,p.low,p.high);setTarget(m);$("hpNote").textContent=nname(m);
+  if(HP.drone)HP.drone.o.frequency.setTargetAtTime(mtof(m),S.ctx.currentTime,0.03),HP.drone.o2.frequency.setTargetAtTime(mtof(m),S.ctx.currentTime,0.03);
+}
+/* a soft steady note at the target: a buzzy and a pure oscillator through a low-pass filter, kept quiet so the singer's own voice stays on top */
+function hpDroneSet(on){
+  const b=$("hpDrone");b.setAttribute("aria-pressed",on?"true":"false");b.textContent=on?"Drone: on":"Drone: off";
+  if(on&&!HP.drone&&S.ctx){
+    const c=S.ctx,t=c.currentTime,g=c.createGain(),lp=c.createBiquadFilter(),o=c.createOscillator(),o2=c.createOscillator(),g2=c.createGain(),f=mtof(targetMidi);
+    o.type="sawtooth";o2.type="sine";o.frequency.value=f;o2.frequency.value=f;lp.type="lowpass";lp.frequency.value=900;g2.gain.value=0.6;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.1,t+0.3);
+    o.connect(lp);lp.connect(g);o2.connect(g2);g2.connect(g);g.connect(S.out);o.start(t);o2.start(t);HP.drone={o,o2,g};
+  }else if(!on&&HP.drone){
+    const d=HP.drone,t=S.ctx.currentTime;HP.drone=null;d.g.gain.cancelScheduledValues(t);d.g.gain.setValueAtTime(d.g.gain.value,t);d.g.gain.linearRampToValueAtTime(0,t+0.15);
+    d.o.stop(t+0.2);d.o2.stop(t+0.2);setTimeout(()=>{try{d.g.disconnect()}catch(e){}},400);
+  }
+}
+function hpStart(){
+  const p=profile()||{home:55,low:48,high:64};HP.p=p;HP.buf=[];HP.on=true;$("hpBox").hidden=false;document.querySelector(".wrap").classList.add("hpmode");
+  hpSet(p.home);hpDroneSet(false);hpFit();cancelAnimationFrame(HP.raf);HP.raf=requestAnimationFrame(hpFrame);
+}
+function hpStop(){
+  if(!HP.on&&!HP.drone)return;
+  hpDroneSet(false);HP.on=false;cancelAnimationFrame(HP.raf);HP.buf=[];$("hpBox").hidden=true;document.querySelector(".wrap").classList.remove("hpmode");
+}
+$("hpDn").onclick=()=>{if(HP.on)hpSet(targetMidi-1)};
+$("hpUp").onclick=()=>{if(HP.on)hpSet(targetMidi+1)};
+$("hpPlay").onclick=()=>{if(HP.on&&S.ctx)tone(targetMidi,S.ctx.currentTime+0.05,1.4)};
+$("hpDrone").onclick=()=>{if(HP.on)hpDroneSet(!HP.drone)};
+window.addEventListener("resize",()=>{if(HP.on)hpDraw()});
+
 async function start(mode,delayMin=0){
   if(S.running)return;
   S.running=true;S.stop=false;S.skip=false;S.paused=false;S.replayReq=false;S.mode=mode;S.finished=false;S.sessionStart=0;S.cool=false;S.wind=false;S.nBlk=0;
-  ui.go.textContent=mode==="test"?"End mic test":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
-  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":"Running. You can switch to navigation now. Press Stop when you arrive for a short cool-down, or twice to end at once.";
+  ui.go.textContent=mode==="test"?"End mic test":mode==="home"?"End home practice":"Stop";ui.go.classList.add("stop");showView(null);$("laterRow").hidden=true;
+  ui.hint.textContent=mode==="test"?"Sing or speak. The target box shows the nearest note.":mode==="home"?"Sing along with the target note and watch the line.":"Running. You can switch to navigation now. Press Stop when you arrive for a short cool-down, or twice to end at once.";
   try{
     if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(""))}
     try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}
     await openMic();
-    if(mode!=="test")diagBegin();
+    if(mode==="session")diagBegin();
     if(mode==="test"){setStage("Mic test");ui.say.textContent="Sing a note. The You box and the needle should follow your voice. If the level bar jumps while you're silent, turn on the road-noise filter in Settings.";await calibrate(1500);
+      while(true){await sleep(200*SPEED)}}
+    if(mode==="home"){setStage("Home practice");ui.say.textContent="Sing, and watch the line. Green means within 25 cents of the target.";hpStart();await calibrate(1500);
       while(true){await sleep(200*SPEED)}}
     mediaOn();showCtl(true);
     if(delayMin)await countdown(delayMin);
@@ -1871,11 +2031,11 @@ async function start(mode,delayMin=0){
   }catch(e){
     if(!(e instanceof Stopped)){setStage("Something went wrong");ui.say.textContent=e&&e.name==="NotAllowedError"?"The microphone was blocked. Allow microphone access for this page in Chrome, then press Start again.":"Could not start: "+(e&&e.message||e);console.error(e)}
   }finally{
-    if(mode!=="test"){sungSave();saveSession();diagEnd();if(S.sessionStart&&(performance.now()-S.sessionStart)*SPEED>=180000)noteDay()}
-    closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
+    if(mode==="session"){sungSave();saveSession();diagEnd();if(S.sessionStart&&(performance.now()-S.sessionStart)*SPEED>=180000)noteDay()}
+    hpStop();closeMic();mediaOff();showCtl(false);try{S.wake&&S.wake.release()}catch(e){}S.wake=null;
     S.running=false;S.paused=false;$("laterRow").hidden=false;markNav();ui.go.textContent="Start";ui.go.classList.remove("stop");setTarget(null);ui.you.textContent="–";ui.lvl.style.width="0";ui.needle.style.left="50%";ui.needle.style.opacity=.25;ui.needle.style.background="var(--fg)";
     if(S.finished&&!S.stop){setStage("Finished");ui.say.textContent="Session finished and saved. Progress has your charts and takes."+diagText()}
-    if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":"Session saved. Progress has your charts and takes; Guide has the cues you heard."+diagText();}
+    if(S.stop){setStage("Stopped");ui.say.textContent=S.mode==="test"?"Mic test finished.":S.mode==="home"?"Home practice finished.":"Session saved. Progress has your charts and takes; Guide has the cues you heard."+diagText();}
     ui.hint.textContent="After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.";
   }
 }
@@ -1903,6 +2063,7 @@ const setLater=()=>{laterBtn.textContent=`Start in ${delaySel.value} min`};setLa
 delaySel.onchange=()=>{store.set("delay",+delaySel.value);setLater()};
 laterBtn.onclick=()=>{if(!S.running)start("session",+delaySel.value)};
 $("testBtn").onclick=()=>{if(S.running){if(S.mode==="test")stop();return}showView(null);start("test")};
+$("hpBtn").onclick=()=>{if(S.running){if(S.mode==="home")stop();return}showView(null);start("home")};
 document.addEventListener("visibilitychange",async()=>{if(S.running)diagEv(document.visibilityState==="visible"?"app back on screen":"app went to the background");if(S.running&&document.visibilityState==="visible"){try{S.wake=await navigator.wakeLock.request("screen")}catch(e){}}});
 
 /* ---------- hands-free controls: steering-wheel media buttons ---------- */
@@ -2081,11 +2242,11 @@ async function renderNasCheck(){
 $("ncBtn").onclick=()=>{if(S.running)return;showView("nasCheck");renderNasCheck()};
 const panels=["progress","nasCheck","guide","settings","diag"];
 const navOf={progress:"progBtn",nasCheck:"progBtn",guide:"guideBtn",settings:"setBtn",diag:"setBtn"};
-function markNav(){const open=panels.find(x=>!$(x).hidden),cur=open?navOf[open]:(S.running&&S.mode==="test"?"testBtn":"homeBtn");
+function markNav(){const open=panels.find(x=>!$(x).hidden),cur=open?navOf[open]:(S.running&&S.mode==="test"?"testBtn":S.running&&S.mode==="home"?"hpBtn":"homeBtn");
   document.querySelectorAll(".links button").forEach(b=>b.id===cur?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"))}
 function showView(id){panels.forEach(x=>$(x).hidden=x!==id);document.querySelector(".wrap").classList.toggle("panel-open",!!id);markNav();window.scrollTo(0,0)}
 function togglePanel(id){const show=$(id).hidden;showView(show?id:null);return show}
-function goHome(){if(S.running&&S.mode==="test")stop();showView(null)}
+function goHome(){if(S.running&&(S.mode==="test"||S.mode==="home"))stop();showView(null)}
 $("homeBtn").onclick=goHome;$("title").onclick=goHome;document.querySelectorAll(".back").forEach(b=>b.onclick=goHome);
 $("progBtn").onclick=()=>{if(togglePanel("progress"))renderProgress()};
 

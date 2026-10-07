@@ -33,7 +33,10 @@ const speed=+(process.argv[2]||6);
     await run("Intervals",()=>intervals(pr,4));
     S.done=3;S.round=2;await run("Mixed practice",()=>mixed(pr));
     await run("Song",()=>song(pr),{sum:true});
-    await run("Skills",()=>skills(pr),{sum:false});
+    // skills() rotates swell, clean starts, ear training (D.sk); each one timed on its own, the first two make "Skills"
+    D.sk=0;await run("Skills (swell)",()=>skills(pr),{sum:false,key:"x5"});
+    await run("Skills (clean starts)",()=>skills(pr),{sum:false,key:"x6"});
+    await run("Ear training",()=>skills(pr),{sum:false});
     await run("Free singing",()=>freeSing(),{sum:false});
     {const t0=clock();await summary();out.push(["Summary",+((clock()-t0)/60000).toFixed(2)])}
     await run("Reset",()=>resetVoice(),{sum:false});
