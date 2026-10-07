@@ -79,6 +79,17 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-
 .chart .pt{fill:var(--flat);opacity:.6}
 .tip{position:absolute;top:22px;right:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:.75rem var(--mono);color:var(--fg);pointer-events:none}
 details{font-size:.8rem;color:var(--dim)}
+.srow{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:8px 0}
+.srow{flex-wrap:wrap}
+.srow .sn{flex:1 1 150px;display:flex;flex-direction:column;min-width:0}
+.srow .sc{display:flex;gap:8px;align-items:center}
+.srow select{padding:6px 8px;font-size:.9rem}
+.srow small{color:var(--dim);font-size:.75rem}
+.srow .btn{padding:6px 10px;font-size:.85rem}
+.sh{margin:6px 0 0;font-size:.95rem}
+.songform{display:flex;flex-direction:column;gap:12px}
+input[type=text]{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;max-width:100%;width:100%;box-sizing:border-box}
+input.mono{font:.85rem var(--mono)}
 .checks{border:1px solid var(--line);border-radius:8px;margin:0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .checks legend{color:var(--dim);font-size:.9rem;padding:0 4px}
 .checks label,label.tick{flex-direction:row;align-items:center;gap:8px;color:var(--fg)}
@@ -218,6 +229,25 @@ details th{color:var(--fg)}
     <h2>Cues</h2>
     <p class="hint">Each session uses one cue per topic and rotates through them. Star the ones that work for you and the coach will use them more often.</p>
     <div id="cues" style="display:flex;flex-direction:column;gap:16px"></div>
+    <h2>Songs</h2>
+    <p class="hint">Song practice and the song lines after technique work use these. For each song say whether you know it: "Teach me" songs get every line played twice before you sing it, and become "I know it" once you sing the whole song well from memory; "Skip" songs are never used. Pressing next in the first line of a song you know switches it to "Teach me". "Fits" means every note of the song lies inside your measured range; a stretch may reach notes you cannot sing comfortably yet. The built-in melodies are traditional or published before 1929. Only the first words of each phrase are stored, never the lyrics.</p>
+    <div id="songList"></div>
+    <p class="hint" id="songNote" hidden></p>
+    <h3 class="sh">Add your own song</h3>
+    <p class="hint">At home, never while driving. Type the notes, one phrase per line: note names with the octave (C#4, Bb3), then / and the length in beats if it is not 1, then | and the first few words of the phrase. For example: C4 C4 G4 G4 A4 A4 G4/2 | Twinkle twinkle. It is kept only on this phone and is part of the backup.</p>
+    <div class="songform">
+      <label for="soName">Name<input id="soName" type="text" maxlength="40" autocomplete="off"></label>
+      <label for="soTempo">Tempo<select id="soTempo"><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select></label>
+      <label for="soP1">Phrase 1<input id="soP1" class="mono" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="C4 C4 G4 G4 A4 A4 G4/2 | Twinkle twinkle"></label>
+      <label for="soP2">Phrase 2<input id="soP2" class="mono" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label for="soP3">Phrase 3<input id="soP3" class="mono" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label for="soP4">Phrase 4<input id="soP4" class="mono" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <div class="row">
+        <button class="btn" id="soPrev" type="button">Play phrase 1</button>
+        <button class="btn" id="soSave" type="button">Save song</button>
+      </div>
+      <p class="hint" id="soMsg" role="status" hidden></p>
+    </div>
     <h2>Lessons to watch at home</h2>
     <p class="hint">One video lesson per topic, from voice teachers on YouTube. For home, never while driving.</p>
     <ul class="lessons" id="lessons"></ul>
@@ -298,7 +328,7 @@ details th{color:var(--fg)}
     </div>
     <p class="hint" id="lenHint"></p>
     <p class="hint" id="hint">After pressing Start you can switch to navigation or lock the phone; the coach is built to keep running. Keep the phone where its mic can hear you.</p>
-    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.5</p>
+    <p class="hint" id="ver" style="font:.7rem var(--mono)">Version 2026-10-07.6</p>
   </div>
 </div>
 
@@ -556,7 +586,7 @@ function analyseHold(frames,target,o={}){
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("rvc_"+k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem("rvc_"+k,JSON.stringify(v))}catch(e){}}};
-const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1,eh:1,em:1,ei:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{},lastT:{}});
+const D0=()=>({lv:{pm:1,sc:1,iv:1,lt:1,eh:1,em:1,ei:1},res:{},seen:{},vow:{},vi:0,sk:0,rot:0,rotT:2,rotT2:1,rotP:0,why:{},phr:0,dic:0,song:{s:0,ph:0},sungS:{},best:{},tips:{},brk:[],nx:0,xf:0,xp:0,sj:0,climb:null,notes:{},lastT:{}});
 let D=Object.assign(D0(),store.get("data",{}));
 const saveD=()=>store.set("data",D);
 const idb={db:null,
@@ -1575,22 +1605,114 @@ async function release(p){
   await speak("Notice whether the second one felt easier. That is the feeling to keep.");
   if(xferNow())await transfer(p,"release");
 }
+/* Songs are melodies only. n = semitones from the tonic, one per sung note; d = beats per note (quarter note = 1), same length;
+   w = a cue of 2 to 4 words, the start of the phrase, never the lyrics (the coach says "It starts: <cue>"); beat = seconds per beat.
+   Four phrases per song. A held note longer than 4 beats is cut to 4. Rests are left out; tied notes are one note.
+   Sources, ABC transcriptions fetched from abcnotation.com and checked against a second one (except where said):
+   Saints: abc.musicaviva.com/tunes/usa/when-the-saints.abc and trillian.mit.edu/~jc/music/abc/demo/Tunes/WhenTheSaintsGoMarchingIn
+   Michael: abc.musicaviva.com/tunes/usa/michael-row-d.abc and sniff.numachi.com/~rickheit/dtrad (MICHAELR)
+   Silent night: colinhume.com/ABC.txt (Silent Night) and sniff.numachi.com/~rickheit/dtrad (SLNTNITE)
+   Down in the valley: abc.musicaviva.com/tunes/usa/down-in-the-valley.abc (one source only; the melody agrees with what is generally sung)
+   My Bonnie: colinhume.com/ABC.txt (My Bonnie Lies Over the Ocean), sniff.numachi.com/~rickheit/dtrad (MYBONNIE), trillian.mit.edu/~jc/music/abc/demo/Tunes/MyBonnieLiesOverTheOcean
+   Home on the range: abc.musicaviva.com/tunes/usa/home-on-the-range.abc and trillian.mit.edu/~jc/music/abc/mirror/gulfweb.net:34043/~rlwalker/abc/home
+   Clementine: trillian.mit.edu/~jc/music/abc/mirror/gulfweb.net:34043/~rlwalker/abc/clementine and sniff.numachi.com/~rickheit/dtrad (CLEMENTI)
+   Left out because the sources disagreed or the range was too wide: Red River Valley, Shenandoah, Scarborough Fair, Swing Low, Auld Lang Syne. */
 const SONGS=[
   {name:"Twinkle, twinkle, little star",beat:0.5,ph:[
-    {n:[0,0,7,7,9,9,7],d:[1,1,1,1,1,1,2],w:"Twinkle, twinkle, little star"},
-    {n:[5,5,4,4,2,2,0],d:[1,1,1,1,1,1,2],w:"How I wonder what you are"},
-    {n:[7,7,5,5,4,4,2],d:[1,1,1,1,1,1,2],w:"Up above the world so high"},
-    {n:[7,7,5,5,4,4,2],d:[1,1,1,1,1,1,2],w:"Like a diamond in the sky"}]},
+    {n:[0,0,7,7,9,9,7],d:[1,1,1,1,1,1,2],w:"Twinkle, twinkle"},
+    {n:[5,5,4,4,2,2,0],d:[1,1,1,1,1,1,2],w:"How I wonder"},
+    {n:[7,7,5,5,4,4,2],d:[1,1,1,1,1,1,2],w:"Up above the world"},
+    {n:[7,7,5,5,4,4,2],d:[1,1,1,1,1,1,2],w:"Like a diamond"}]},
   {name:"Are you sleeping",beat:0.6,ph:[
-    {n:[0,2,4,0,0,2,4,0],d:[1,1,1,1,1,1,1,1],w:"Are you sleeping, are you sleeping"},
-    {n:[4,5,7,4,5,7],d:[1,1,2,1,1,2],w:"Brother John, Brother John"},
-    {n:[7,9,7,5,4,0,7,9,7,5,4,0],d:[0.5,0.5,0.5,0.5,1,1,0.5,0.5,0.5,0.5,1,1],w:"Morning bells are ringing, morning bells are ringing"},
-    {n:[0,-5,0,0,-5,0],d:[1,1,2,1,1,2],w:"Ding, dang, dong. Ding, dang, dong"}]},
+    {n:[0,2,4,0,0,2,4,0],d:[1,1,1,1,1,1,1,1],w:"Are you sleeping"},
+    {n:[4,5,7,4,5,7],d:[1,1,2,1,1,2],w:"Brother John"},
+    {n:[7,9,7,5,4,0,7,9,7,5,4,0],d:[0.5,0.5,0.5,0.5,1,1,0.5,0.5,0.5,0.5,1,1],w:"Morning bells are ringing"},
+    {n:[0,-5,0,0,-5,0],d:[1,1,2,1,1,2],w:"Ding, dang, dong"}]},
   {name:"Amazing Grace",beat:0.55,ph:[
-    {n:[-5,0,4,0,4,2,0,-3,-5],d:[1,2,0.5,0.5,2,1,2,1,2],w:"Amazing grace, how sweet the sound"},
-    {n:[-5,0,4,0,4,2,7],d:[1,2,0.5,0.5,2,1,3],w:"That saved a wretch like me"},
-    {n:[4,7,4,0,-5,-3,0,-5],d:[1,2,1,2,1,2,1,2],w:"I once was lost, but now am found"},
-    {n:[-5,0,4,0,4,2,0],d:[1,2,0.5,0.5,2,1,3],w:"Was blind, but now I see"}]}];
+    {n:[-5,0,4,0,4,2,0,-3,-5],d:[1,2,0.5,0.5,2,1,2,1,2],w:"Amazing grace"},
+    {n:[-5,0,4,0,4,2,7],d:[1,2,0.5,0.5,2,1,3],w:"That saved a wretch"},
+    {n:[4,7,4,0,-5,-3,0,-5],d:[1,2,1,2,1,2,1,2],w:"I once was lost"},
+    {n:[-5,0,4,0,4,2,0],d:[1,2,0.5,0.5,2,1,3],w:"Was blind, but now"}]},
+  {name:"When the saints go marching in",beat:0.5,ph:[
+    {n:[0,4,5,7,0,4,5,7],d:[1,1,1,4,1,1,1,4],w:"Oh when the saints"},
+    {n:[0,4,5,7,4,0,4,2],d:[1,1,1,2,2,2,2,4],w:"Oh when the saints"},
+    {n:[4,4,2,0,4,7,7,5],d:[1,1,1,4,2,2,1,3],w:"I want to be"},
+    {n:[4,5,7,4,0,2,0],d:[1,1,2,2,2,2,4],w:"When the saints go"}]},
+  {name:"Michael, row the boat ashore",beat:0.6,ph:[
+    {n:[0,4,7,4,7,9,7],d:[1,1,1.5,0.5,0.5,1.5,2],w:"Michael row the boat"},
+    {n:[4,7,9,7],d:[1,1,4,1],w:"Hallelujah"},
+    {n:[4,7,7,4,5,4,2],d:[1,1,1.5,0.5,0.5,1.5,2],w:"Michael row the boat"},
+    {n:[0,2,4,2,0],d:[1,1,2,2,2],w:"Hallelujah"}]},
+  {name:"Silent night",beat:0.65,ph:[
+    {n:[7,9,7,4,7,9,7,4],d:[1.5,0.5,1,3,1.5,0.5,1,3],w:"Silent night, holy night"},
+    {n:[14,14,11,12,12,7],d:[2,1,3,2,1,3],w:"All is calm"},
+    {n:[9,9,12,11,9,7,9,7,4],d:[2,1,1.5,0.5,1,1.5,0.5,1,3],w:"Round yon virgin"},
+    {n:[9,9,12,11,9,7,9,7,4],d:[2,1,1.5,0.5,1,1.5,0.5,1,3],w:"Holy infant, so tender"}]},
+  {name:"Down in the valley",beat:0.6,ph:[
+    {n:[-5,0,2,4,0],d:[1,1,1,3,4],w:"Down in the valley"},
+    {n:[4,2,0,2],d:[1,1,1,4],w:"Valley so low"},
+    {n:[-5,-1,2,5,2],d:[1,1,1,3,4],w:"Hang your head over"},
+    {n:[-1,0,2,0],d:[1,1,1,4],w:"Hear the wind blow"}]},
+  {name:"My Bonnie lies over the ocean",beat:0.55,ph:[
+    {n:[-5,4,2,0,2,0,-3,-5,-8],d:[1,1,1,1,1,1.5,0.5,1,3],w:"My Bonnie lies over"},
+    {n:[-5,4,2,0,0,-1,0,2],d:[1,1,1,1,1,1,1,4],w:"My Bonnie lies over"},
+    {n:[-5,-3,2,0,-1,-3,-1,0],d:[1,1,1,1,1,1,1,4],w:"Oh bring back my"},
+    {n:[-1,-1,-1,-1,-3,-1,0,2,4],d:[1,1,1,1,1,1,2,1,3],w:"Bring back my Bonnie"}]},
+  {name:"Home on the range",beat:0.55,ph:[
+    {n:[-5,-5,-5,0,2,4,0,-1,-3,5,5,5],d:[0.5,0.5,1,1,1,2,0.5,0.5,1,1,1,2],w:"Oh give me a home"},
+    {n:[4,5,7,0,0,0,-1,0,2],d:[0.5,0.5,1.5,0.5,1,1,1,1,4],w:"Where the deer"},
+    {n:[5,5,4,2,0,-1,0,2,0],d:[0.5,0.5,1.5,0.5,1,1,1,1,4],w:"And the skies are"},
+    {n:[7,5,4,2,4],d:[3,1,1.5,0.5,4],w:"Home, home on"}]},
+  {name:"Clementine",beat:0.5,ph:[
+    {n:[0,0,0,-5,4,4,4,0],d:[0.75,0.25,1,1,0.75,0.25,1,1],w:"In a cavern"},
+    {n:[0,4,7,7,5,4,2],d:[0.5,0.5,1.5,0.5,0.5,0.5,2],w:"Excavating for a mine"},
+    {n:[2,4,5,5,4,2,4,0],d:[0.5,0.5,1,1,0.5,0.5,1,1],w:"Dwelt a miner"},
+    {n:[0,4,2,-5,-1,2,0],d:[0.5,0.5,1,1,0.5,0.5,2],w:"And his daughter"}]}];
+/* The song list is the built-in songs plus the ones typed in at home (rvc_mySongs, same format with own:true). rvc_songKnow = {name: "know" |
+   "teach" | "skip"}, set in the Guide: know = practised as it is, teach = the song block plays each line twice first, skip = never used.
+   Unmarked: teach, except the nursery tunes (DEFKNOW) and own songs, which are know. songList is who may be used for this range: not skipped
+   and fitting (span in semitones within the measured range), falling back to the not-skipped ones, then to all, so there is always a song.
+   songPool puts the least-sung first, and at the same count the songs Paul knows before the ones to teach, so every song comes once (known ones
+   first) before any repeats; sorting by know first would never reach the songs to teach. */
+const DEFKNOW={"Twinkle, twinkle, little star":"know","Are you sleeping":"know"};
+const songMode=s=>store.get("songKnow",{})[s.name]||(s.own?"know":DEFKNOW[s.name]||"teach");
+const setSongMode=(s,m)=>{const k=store.get("songKnow",{});k[s.name]=m;store.set("songKnow",k)};
+const mySongs=()=>store.get("mySongs",[]),allSongs=()=>SONGS.concat(mySongs());
+const songSpan=s=>{const a=s.ph.flatMap(x=>x.n);return Math.max(...a)-Math.min(...a)};
+const songFits=(s,p)=>!p||songSpan(s)<=p.high-p.low-1;
+function songList(p){
+  const all=allSongs(),on=all.filter(s=>songMode(s)!=="skip"),use=on.length?on:all,fit=use.filter(s=>songFits(s,p));
+  return fit.length?fit:use;
+}
+function songPool(p){
+  const c=D.sungS||{},r=s=>songMode(s)==="know"?0:1;
+  return songList(p).map((s,i)=>[s,i]).sort((a,b)=>(c[a[0].name]||0)-(c[b[0].name]||0)||r(a[0])-r(b[0])||a[1]-b[1]).map(x=>x[0]);
+}
+/* Typing in a song: "C4 C4 G4/2 | Twinkle twinkle" per phrase. Note names with octave (C#4, Bb3), /length in beats (default 1), then | and a cue of
+   at most 5 words. Returns the song in SONGS format, relative to the first note of the first phrase, or {err} naming the phrase and the token. */
+const TEMPO={slow:0.65,medium:0.55,fast:0.45};
+function parseOwn(name,beat,lines){
+  const PC={C:0,D:2,E:4,F:5,G:7,A:9,B:11},ph=[];let base=null;
+  for(let i=0;i<lines.length;i++){
+    const line=(lines[i]||"").trim();if(!line)continue;
+    const k=i+1,[nt,...rest]=line.split("|"),cue=rest.join("|").trim().replace(/\s+/g," "),toks=nt.trim().split(/\s+/).filter(Boolean),m=[],d=[];
+    if(toks.length<2)return {err:`Phrase ${k}: write at least two notes, like C4 D4.`};
+    if(toks.length>40)return {err:`Phrase ${k}: that is more than 40 notes. Split it into two phrases.`};
+    for(const t of toks){
+      const x=/^([A-Ga-g])([#b]?)(\d)(?:\/(\d*\.?\d+))?$/.exec(t);
+      if(!x)return {err:`Phrase ${k}, "${t}": not a note. Write a letter A to G, then # or b if needed, then the octave, then / and the length in beats if it is not 1. For example C#4 or G4/2.`};
+      const mi=12*(+x[3]+1)+PC[x[1].toUpperCase()]+(x[2]==="#"?1:x[2]==="b"?-1:0),dur=x[4]==null?1:+x[4];
+      if(mi<36||mi>84)return {err:`Phrase ${k}, "${t}": too low or too high. Use octaves 2 to 6.`};
+      if(!(dur>=0.25&&dur<=8))return {err:`Phrase ${k}, "${t}": the length must be between 0.25 and 8 beats.`};
+      m.push(mi);d.push(dur);
+    }
+    if(cue.split(" ").filter(Boolean).length>5||cue.length>40)return {err:`Phrase ${k}: after the | write only the first few words, 5 at most.`};
+    if(base==null)base=m[0];
+    ph.push({n:m.map(v=>v-base),d,w:cue});
+  }
+  if(!ph.length)return {err:"Type at least one phrase, like C4 D4 E4 | First words."};
+  return {song:{name:(name||"").trim().replace(/\s+/g," "),beat,ph,own:true}};
+}
 /* Sounds with a job: a syllable whose consonant sets one thing (tongue, tone, larynx, the break), sung on a short pattern,
    then the half-step climb. The synth has no consonants, so the model uses the closest vowel shape and the coach names the sound.
    tipFor("job") rotates the four sounds; the pattern changes every fourth block. The climb starts near the bottom of the range
@@ -1629,30 +1751,50 @@ function songTon(s,p){
    always lands on the same beat (nasality when set to "more") still gets it about half the time. */
 const xferNow=()=>{const k=D.xf=(D.xf||0)+1;return (k+(k>>3))%2===0};
 async function transfer(p,topic,syl="ah",say=""){
-  const all=SONGS.flatMap(s=>s.ph.map(ph=>[s,ph])),[s,ph]=all[(D.xp||0)%all.length];D.xp=(D.xp||0)+1;
+  const kn=songList(p).filter(s=>songMode(s)==='know'),all=(kn.length?kn:[SONGS[0]]).flatMap(s=>s.ph.map(ph=>[s,ph])),[s,ph]=all[(D.xp||0)%all.length];D.xp=(D.xp||0)+1;
   const ton=songTon(s,p),t=ph.n.map(x=>ton+x),durs=ph.d.map(x=>x*s.beat),tip=S.tip[topic],cue=say||(tip?`today's cue, ${tip.name}`:"the same feeling");
   await speak(`Now take that into a song. One line of ${s.name}, first on ${syl}, keeping ${cue}.`);
   await rep(t,{durs,own:false,noRetry:true});
-  await speak(`Now the same line with the words: ${ph.w}.`);
+  await speak(`Now the same line with the words.${cueSay(ph)}`);
   await rep(t,{durs,own:false,noRetry:true,words:true});
 }
+/* a phrase's cue, said after "with the words": the start of the line, never the whole line */
+const cueSay=ph=>ph.w?` It starts: ${ph.w}.`:"";
+/* D.song = {n: name of the song in progress, ph: next phrase, s: songs finished}; D.sungS counts finished songs by name.
+   A song in progress carries on; a new one is the first of songPool (fitting; least sung; known before teach).
+   A song marked "teach" gets each line played twice before Paul sings it. Singing it whole from memory within 50 cents on average makes it
+   "know". Next pressed in the first phrase of a known song marks it "teach", for hands-free marking. */
 async function song(p){
-  const s=SONGS[D.song.s%SONGS.length],ton=songTon(s,p);
-  await speak(D.song.ph===0?`Song practice: ${s.name}. Phrase by phrase, first on la, then with the words.`:`Back to ${s.name}.`);
-  for(let k=0;k<2&&D.song.ph<s.ph.length;k++){
-    const ph=s.ph[D.song.ph],t=ph.n.map(x=>ton+x),durs=ph.d.map(x=>x*s.beat);
-    await speak(`Phrase ${D.song.ph+1}, on la.`);await rep(t,{durs,own:false});
-    await speak(`Now with the words: ${ph.w}.`);await rep(t,{durs,own:false,words:true});
-    D.song.ph++;saveD();
-  }
-  if(D.song.ph>=s.ph.length){
-    await speak("Now the whole song from memory, with the words. Here is your first note.");
-    await play([ton+s.ph[0].n[0]],1.2);setSub("listening");
-    const f=await listen({max:45000,wait:8000,endSil:3500});setSub("");
-    const a=freeAnalysis(f);
-    await speak(a?freeText(a):"I didn't hear enough of that.");
-    if(a&&S.lastTake){const c=clipOf(S.lastTake,0,12);addClip(s.name,c);await speak("Here is the start of it.");await playTake(c)}
-    D.song={s:D.song.s+1,ph:0};
+  const g=D.song;
+  if(!g.n){const o=SONGS.slice(0,3);g.n=o[g.s%3].name;for(let i=0;i<g.s;i++){const n=o[i%3].name;D.sungS[n]=(D.sungS[n]||0)+1}} // saved before songs had names: s counted through the first three
+  const pool=songPool(p);let s=g.ph>0?pool.find(x=>x.name===g.n):null;
+  if(!s){s=pool[0];g.n=s.name;g.ph=0}
+  const ton=songTon(s,p),teach=songMode(s)==="teach";let k=0;
+  try{
+    await speak(g.ph===0?`Song practice: ${s.name}. `+(teach?"This one is new to you, so I'll play each line first. Then you sing it.":"Phrase by phrase, first on la, then with the words."):`Back to ${s.name}.`);
+    for(;k<2&&g.ph<s.ph.length;k++){
+      const ph=s.ph[g.ph],t=ph.n.map(x=>ton+x),durs=ph.d.map(x=>x*s.beat);
+      if(teach){await speak("Listen to this line.");await play(t,durs);await speak("Once more. Hum along quietly.");await play(t,durs)}
+      await speak(`Phrase ${g.ph+1}, on la.`);await rep(t,{durs,own:false});
+      await speak(`Now with the words.${cueSay(ph)}`);await rep(t,{durs,own:false,words:true});
+      g.ph++;saveD();
+    }
+    if(g.ph>=s.ph.length){
+      await speak("Now the whole song from memory, with the words. Here is your first note.");
+      await play([ton+s.ph[0].n[0]],1.2);setSub("listening");
+      const f=await listen({max:45000,wait:8000,endSil:3500});setSub("");
+      const a=freeAnalysis(f);
+      await speak(a?freeText(a):"I didn't hear enough of that.");
+      if(a&&S.lastTake){const c=clipOf(S.lastTake,0,12);addClip(s.name,c);await speak("Here is the start of it.");await playTake(c)}
+      let learned=false;
+      if(a&&teach){let r=null;try{r=analyseSeq(f,s.ph.flatMap(x=>x.n.map(v=>ton+v)),{},S)}catch(e){}learned=!!(r&&r.heard&&r.avg<50)}
+      D.sungS[s.name]=(D.sungS[s.name]||0)+1;
+      D.song={s:g.s+1,n:s.name,ph:0};saveD();
+      if(learned){setSongMode(s,"know");await speak("You know this one now.")}
+    }
+  }catch(e){
+    if(e instanceof Skip&&k===0&&songMode(s)==="know"){setSongMode(s,"teach");D.song={s:g.s,n:s.name,ph:0};saveD();await speak("Okay, I'll teach you that one next time.")}
+    throw e;
   }
 }
 async function freeSing(){
@@ -2303,8 +2445,49 @@ function renderGuide(){
     }
     box.append(sec);
   }
+  renderSongs();
   $("lessons").innerHTML=LESSONS.map(([t,v,c,u])=>`<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a><small>${esc(v)} · ${esc(c)}</small></li>`).join("");
 }
+/* the Songs section of the Guide: a choice per song (rvc_songKnow), span and fit, and a Delete for own songs */
+const KNOW=[["know","I know it"],["teach","Teach me"],["skip","Skip"]];
+function renderSongs(){
+  const box=$("songList"),p=profile(),all=allSongs();box.innerHTML="";
+  for(const s of all){
+    const row=document.createElement("div");row.className="srow";
+    const tx=document.createElement("span"),nm=document.createElement("b"),sm=document.createElement("small");tx.className="sn";
+    nm.textContent=s.name;nm.style.fontWeight="500";
+    sm.textContent=`${songSpan(s)} semitones · ${p?(songFits(s,p)?"fits your range":"a stretch for your range"):"range not measured yet"}`+(s.own?" · yours":"");
+    tx.append(nm,sm);row.append(tx);
+    const c=document.createElement("span");c.className="sc";
+    const sel=document.createElement("select");sel.setAttribute("aria-label","Do you know "+s.name);
+    for(const [v,t] of KNOW){const o=document.createElement("option");o.value=v;o.textContent=t;sel.append(o)}
+    sel.value=songMode(s);sel.onchange=()=>{setSongMode(s,sel.value);renderSongs()};c.append(sel);
+    if(s.own){const b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Delete";b.setAttribute("aria-label","Delete "+s.name);
+      b.onclick=()=>{store.set("mySongs",mySongs().filter(x=>x.name!==s.name));const k=store.get("songKnow",{});delete k[s.name];store.set("songKnow",k);
+        delete D.sungS[s.name];if(D.song.n===s.name)D.song={s:D.song.s,ph:0};saveD();renderSongs()};c.append(b)}
+    row.append(c);box.append(row);
+  }
+  const n=$("songNote"),none=all.every(s=>songMode(s)==="skip");
+  n.hidden=!none;n.textContent=none?"Every song is set to Skip, so the coach will use all of them.":"";
+}
+const soMsg=t=>{const m=$("soMsg");m.textContent=t;m.hidden=!t};
+const soRead=()=>parseOwn($("soName").value,TEMPO[$("soTempo").value]||0.55,[1,2,3,4].map(i=>$("soP"+i).value));
+$("soPrev").onclick=async()=>{
+  if(S.running)return;const r=soRead();if(r.err)return soMsg(r.err);
+  const s=r.song,p=profile()||{home:55,low:48,high:64},ton=songTon(s,p),ph=s.ph[0];
+  soMsg("Playing the first phrase you typed.");S.stop=false;S.skip=false;S.paused=false;S.lat=0;await ensureCtx();
+  try{await play(ph.n.map(x=>ton+x),ph.d.map(x=>x*s.beat))}catch(e){}setTarget(null);soMsg("");
+};
+$("soSave").onclick=()=>{
+  const r=soRead();if(r.err)return soMsg(r.err);
+  const s=r.song;
+  if(!s.name)return soMsg("Give the song a name.");
+  if(allSongs().some(x=>x.name.toLowerCase()===s.name.toLowerCase()))return soMsg(`There is already a song called ${s.name}.`);
+  if(mySongs().length>=20)return soMsg("That is 20 songs of your own. Delete one first.");
+  store.set("mySongs",mySongs().concat([s]));
+  ["soName","soP1","soP2","soP3","soP4"].forEach(i=>$(i).value="");
+  soMsg(`Saved ${s.name}. It joins the song practice from the next session.`);renderSongs();
+};
 $("guideBtn").onclick=()=>{if(togglePanel("guide"))renderGuide()};
 
 /* ---------- backup: everything the app keeps, in one file ---------- */

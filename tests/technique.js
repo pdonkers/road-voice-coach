@@ -48,7 +48,7 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
     if(x){
       const t=r.say.find(s=>/^Now take that into a song\./.test(s));
       ok('transfer says the song, the syllable and the cue',/One line of .+, first on ah, keeping today's cue, .+\.$/.test(t),t);
-      ok('transfer sings the line twice, the second time with the words',has(r.say,/^Now the same line with the words: /)&&r.reps.length>=2&&JSON.stringify(r.reps[r.reps.length-1])===JSON.stringify(r.reps[r.reps.length-2]));
+      ok('transfer sings the line twice, the second time with the words',has(r.say,/^Now the same line with the words\. It starts: /)&&r.reps.length>=2&&JSON.stringify(r.reps[r.reps.length-1])===JSON.stringify(r.reps[r.reps.length-2]));
     }
   }
   ok('all six nasality exercises came up within five blocks',EX.every(([k])=>seen[k]),JSON.stringify(seen));
@@ -62,14 +62,14 @@ const {chromium}=require(process.env.PLAYWRIGHT||'/opt/npm-tools/node_modules/pl
   // ---- the transfer step: songs rotate, the key matches song() ----
   const tr=await p.evaluate(()=>{
     const names=new Set(),ph=new Set();let bad=0;
-    const all=SONGS.flatMap(s=>s.ph.map(x=>[s,x]));D.xp=0;
-    for(let i=0;i<all.length+2;i++){const [s,x]=all[(D.xp||0)%all.length];names.add(s.name);ph.add(x.w);D.xp++}
+    const P0={home:55,low:45,high:64};store.set('songKnow',Object.fromEntries(SONGS.map(s=>[s.name,'know'])));const all=songList(P0).flatMap(s=>s.ph.map(x=>[s,x]));D.xp=0;
+    for(let i=0;i<all.length+2;i++){const [s,x]=all[(D.xp||0)%all.length];names.add(s.name);ph.add(x);D.xp++}
     const old=(s,p)=>{const a=s.ph.flatMap(x=>x.n),mn=Math.min(...a),mx=Math.max(...a);return clamp(Math.round(p.home+2-(mn+mx)/2),p.low+1-mn,Math.max(p.low+1-mn,p.high-1-mx))};
     for(const s of SONGS)for(const pr of [{home:55,low:45,high:64},{home:48,low:40,high:58},{home:60,low:52,high:70}])if(songTon(s,pr)!==old(s,pr))bad++;
     const k=[];D.xf=0;for(let i=0;i<32;i++)k.push(xferNow()?1:0);
-    return {songs:names.size,phrases:ph.size,total:all.length,bad,k};
+    store.set('songKnow',{});return {songs:names.size,phrases:ph.size,total:all.length,nsongs:songList(P0).length,bad,k};
   });
-  ok('transfer rotates through every phrase of every song',tr.songs===3&&tr.phrases===tr.total,tr.phrases+' of '+tr.total);
+  ok('transfer rotates through every phrase of every song',tr.songs===tr.nsongs&&tr.songs>=10&&tr.phrases===tr.total,tr.songs+' songs, '+tr.phrases+' of '+tr.total+' phrases');
   ok('songTon matches the key song() used before',tr.bad===0);
   ok('about every second block gets a transfer step',tr.k.reduce((a,c)=>a+c,0)>=14&&tr.k.reduce((a,c)=>a+c,0)<=18,tr.k.join(''));
 

@@ -134,7 +134,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 2 | Session plan that picks one focus from your results and says so at the start | One focus per session | M | Done |
 | 2 | Old take against new take, side by side | Hearing progress across weeks | S | Done |
 | 2 | Singing-time limit, and a cool-down when you stop | Voice protection | S | Done |
-| 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Open |
+| 3 | More songs, your own songs, and suggestions that fit your range | Content | L | Done |
 | 3 | Ear training by voice | Common in other apps | M | Done |
 | 3 | Home mode with a live pitch graph | Visual feedback is the kind that lasted in the research | M | Done |
 | 3 | Streak and weekly goal | Regularity beats length | S | Done |
