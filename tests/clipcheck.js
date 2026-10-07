@@ -1,5 +1,5 @@
 const fs=require('fs'),cp=require('child_process');
-const html=fs.readFileSync(__dirname+'/../index.html','utf8');const js=html.match(/<script>\n([\s\S]*)<\/script>/)[1];
+const js=fs.readFileSync(__dirname+'/../js/core.js','utf8');
 eval(js.slice(js.indexOf('/* ---------- YIN'),js.indexOf('/* ---------- analysis')).replace('function yin','globalThis.yin=function'));
 const NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],nn=m=>NAMES[(Math.round(m)%12+12)%12]+(Math.floor(Math.round(m)/12)-1);
 const med=a=>{const s=[...a].sort((x,y)=>x-y);return s[s.length>>1]};

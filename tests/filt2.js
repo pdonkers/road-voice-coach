@@ -1,5 +1,4 @@
-const fs=require('fs');const html=fs.readFileSync(__dirname+'/../index.html','utf8');
-const js=html.match(/<script>\n([\s\S]*)<\/script>/)[1];
+const fs=require('fs');const js=fs.readFileSync(__dirname+'/../js/core.js','utf8');
 eval(js.slice(js.indexOf('/* ---------- YIN'),js.indexOf('/* ---------- analysis')).replace('function yin','globalThis.yin=function'));
 const sr=48000;
 function biquad(type,fc,Q=0.7071){const w=2*Math.PI*fc/sr,c=Math.cos(w),al=Math.sin(w)/(2*Q);let b0,b1,b2;const a0=1+al,a1=-2*c,a2=1-al;

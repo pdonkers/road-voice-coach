@@ -140,7 +140,7 @@ Reliability and real examples come first, then teaching depth, then new content.
 | 3 | Streak and weekly goal | Regularity beats length | S | Done |
 | 3 | Guide links to one YouTube lesson per topic | Real demonstrations for watching at home | S | Done |
 | 3 | Steering-wheel buttons: test, then keep or remove | Never tested | S | Needs Paul |
-| 3 | Split the single code file into modules | Maintainability | M | Open |
+| 3 | Split the single code file into modules | Maintainability | M | Done |
 |  | Rhythm exercise | Did not work, and you are not interested |  | Dropped |
 |  | Spoken voice commands and a conversational coach | Distracting while driving |  | Dropped |
 

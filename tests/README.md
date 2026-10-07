@@ -55,7 +55,7 @@ The app reads `window.__speed` to run its waits faster, and the scripts replace 
 | `later.js` | Delayed start: countdown, Skip, and the session starting after the wait | `node tests/later.js` |
 | `navtest.js` | Home link, Back buttons and the separate views, including the mic test and home practice (the Home link ends both; six nav buttons fit at 412 px) | `node tests/navtest.js` |
 | `own.js` | The own-voice note bank: an in-tune note is saved, reloaded and reused as the model note | `node tests/own.js` |
-| `pwa.js` | Manifest, service worker, installability and loading offline | `node tests/pwa.js` |
+| `pwa.js` | Manifest, service worker, installability and loading offline (the page, `css/app.css` and every `js/` file come from the saved copy and the app is running) | `node tests/pwa.js` |
 | `clipcheck.js` | Pitch, level and gaps of each clip in `audio/`, using the app's own pitch detector | `node tests/clipcheck.js` |
 | `filt.js`, `filt2.js`, `filt3.js` | Simulations of the input filter against road noise, from the 5 Oct fix; kept for reference | `node tests/filt3.js` |
 

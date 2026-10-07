@@ -10,7 +10,7 @@ const MIN=60000;
 // timing.js and filt*.js are measurements and reference simulations, not checks, so they are not listed. clipcheck.js and cut.js only print numbers; here they must just run without error.
 const CLEAN=/page errors: 0/;
 const SCRIPTS=[
-  {name:'pwa',file:'pwa.js',expect:[/offline title: \S/]},
+  {name:'pwa',file:'pwa.js',expect:[/offline title: \S/,/offline app running: true/]},
   {name:'navtest',file:'navtest.js',expect:[/nav fits at 412 px: true/]},
   {name:'own',file:'own.js',expect:[/"saved":true/]},
   {name:'realtest',file:'realtest.js',expect:[/"playedOk":true/]},

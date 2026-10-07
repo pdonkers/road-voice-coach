@@ -11,14 +11,14 @@ A hands-free singing coach for the car, built for one user, Paul. He presses Sta
 
 ## Where things are
 
-- `index.html`: the whole app (markup, styles, script). `sw.js`: service worker. `audio/`: real singing clips, with `audio/CREDITS.md`.
+- `index.html`: the markup only. `css/app.css`: the styles. `js/`: the script as seven plain classic scripts loaded in this order and sharing globals (`core.js` helpers, pitch detection, analysis, storage, state; `audio.js` audio in and out, the own-voice bank; `coach.js` practice days, limit, range, one repetition, cues; `blocks.js` the exercise blocks, ear training, songs; `session.js` diagnostics, session plan, session, start and stop, hands-free controls; `home.js` home practice; `pages.js` progress, guide, backup, settings). `sw.js`: service worker. `audio/`: real singing clips, with `audio/CREDITS.md`.
 - `tests/`: working test scripts and simulated microphone recordings.
 
 ## After every change to the app
 
 1. Run `npm test` (every script in `tests/`, about 30 minutes; `npm run test:quick` skips `blocks.js` and the 20-minute length run, about 22 minutes, then run the scripts the change touches, and always `blocks.js`, a full pass through every block with no page errors). The same run happens on GitHub Actions after every push to `main`; check that it is green.
 2. Raise the version label on the home screen in `index.html` (`Version YYYY-MM-DD.N`). Paul uses it to see which build his phone has loaded.
-3. If the list of files to cache changed, raise `CACHE` in `sw.js`.
+3. If the list of files to cache changed (a file added to `css/` or `js/` too), update the list and raise `CACHE` in `sw.js`.
 4. Commit and push to `main`. GitHub Pages rebuilds in about a minute. Check that the live page shows the new version label; fetch it with the web fetch tool if the shell cannot reach github.io.
 5. Add an entry to `docs/changelog.md`, and bring `docs/research.md` ("Build notes") and `BACKLOG.md` up to date.
 

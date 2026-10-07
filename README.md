@@ -29,6 +29,7 @@ The Progress page shows charts per session and lets you replay saved takes. Afte
 
 ## Project files
 
+- `index.html`, [css/](css/app.css) and [js/](js/): the app itself, with no build step (markup, styles, and seven plain scripts that share globals); `sw.js` is the service worker.
 - [BACKLOG.md](BACKLOG.md): assessment of the app and the list of planned improvements.
 - [docs/research.md](docs/research.md): requirements, what the app contains, and the research behind it.
 - [docs/changelog.md](docs/changelog.md): what changed when, and reports from real drives.

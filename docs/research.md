@@ -2,13 +2,13 @@
 
 App: https://pdonkers.github.io/road-voice-coach/ (repo pdonkers/road-voice-coach, GitHub Pages from main). Installed on Paul's Android phone as a web app; used in a Volvo over the car speakers with the phone's microphone.
 
-Status (7 Oct 2026, version label 2026-10-07.6): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
+Status (7 Oct 2026, version label 2026-10-07.7): everything in "Build notes" is live. What changed when, and what Paul reported after each drive, is in [changelog.md](changelog.md). Planned work is in [BACKLOG.md](../BACKLOG.md).
 
 Fixed requirements from Paul: press Start once and never touch the screen again; spoken feedback; English coach; beginner with auto-detected range; exercises plus free singing. He sings nasally (true nasality, confirmed with the nose-pinch test, so the app does not test for it) and reducing that is a main goal. He is not interested in rhythm practice.
 
 ## Build notes (what exists in the app now)
 
-- Files: `index.html` (the whole app, about 1,600 lines), `sw.js` (network-first service worker, cache `rvc-v2`), `manifest.webmanifest`, icons, `audio/*.mp3` (real singing clips).
+- Files: `index.html` (markup only, about 210 lines), `css/app.css` (styles), `js/*.js` (the script, about 2,240 lines in seven plain classic scripts, not ES modules, loaded in this order at the end of the body and sharing globals: `core.js`, `audio.js`, `coach.js`, `blocks.js`, `session.js`, `home.js`, `pages.js`; a duplicate top-level `const` across them would throw at load), `sw.js` (network-first service worker, cache `rvc-v3`, precaches the page, CSS, scripts and clips), `manifest.webmanifest`, icons, `audio/*.mp3` (real singing clips).
 - Round order: warm-up (round 1), technique block (in round 1 the session's focus, see below), pitch matching + scales + intervals (or "mixed practice" from round 2 once 3+ sessions are logged), second technique block, practice block, free singing, summary, reset.
 - Technique rotation (D.rotT2, ten slots): nasality, clean onsets, registers, vowels, clear tone, nasality, smooth line, breath and long notes, loose jaw and tongue, sounds with a job. Practice rotation (D.rotP): song, skills (`skills()` rotates swell, clean starts, ear training with `D.sk`; the third one runs as its own block named "Ear training"). The `rhythm` function is still in the file, unused.
 - Each technique block explains what it is and why it matters the first three times (WHY object, D.why counters).

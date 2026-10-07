@@ -4,6 +4,20 @@ Companion to [research.md](research.md) (research and build notes). Newest first
 
 The assessment and prioritized backlog are in [BACKLOG.md](../BACKLOG.md). The working copy is the Claude Doc "Road Voice Coach: assessment and backlog" (https://claude.ai/code/artifact/48816687-019b-4b0f-85eb-14495b2ef7ce, private to Paul). When a backlog item is built, update the status in the doc and re-export it to `BACKLOG.md`, replacing the byline line.
 
+## 7 Oct 2026 (version label 2026-10-07.7): the app split into CSS and seven scripts (no behaviour change)
+
+One backlog item, "Split the single code file into modules". A pure refactor: nothing the app does is meant to change.
+
+Changes:
+- `index.html` is now markup only (212 lines, was 2,575). The `<style>` block moved unchanged to `css/app.css`, and the script was cut at its section comments into seven plain classic scripts in `js/` (not ES modules), loaded in order with `<script src>` at the end of the body: `core.js` (helpers, YIN, analysis, feedback wording, storage, state), `audio.js` (audio in and out, own-voice bank), `coach.js` (practice days, singing limit, range, one repetition, cues, TIPS, WHY), `blocks.js` (exercise blocks, ear training, songs, summary), `session.js` (diagnostics, session plan, session, start and stop, hands-free controls), `home.js` (home practice graph), `pages.js` (progress, guide, backup, settings). Every top-level name is still global, each file starts with `"use strict";`, and the code is the same lines.
+- Two blocks moved: `start()`, `stop()` and the start-button wiring, which sat between the home-practice code and the hands-free controls, now sit in `session.js` after the session, so that `home.js` holds only the home-practice graph. Nothing between them runs at load time except attaching click handlers. A comment line and a `"use strict";` per file are the only added lines in the scripts; a sorted comparison of all lines before and after shows nothing else changed.
+- `sw.js`: the precache list now includes `css/app.css` and the seven scripts, and `CACHE` went from `rvc-v2` to `rvc-v3`. Still network first. `manifest.webmanifest` and the icons are unchanged.
+- `tests/clipcheck.js` and `tests/filt*.js` took the pitch detector out of the `<script>` in `index.html` by text; they now read `js/core.js`. `tests/pwa.js` now also checks that the offline page is running the app (not just showing the title) and that the stylesheet and every script are in the saved copy; `run-all.js` expects that line. Other scripts needed no change.
+- Checked that no top-level name is declared in two files (285 names, none duplicated; a duplicate `const` across classic scripts would throw at load).
+- Backlog statuses are synced in the Claude Doc and in `BACKLOG.md`.
+
+Tested in headless Chromium only, on Windows with a local server; nothing was tried on the phone, so installing this build (new cache name, new files) over the old one on the phone is not yet seen. `npm test` before the split (on a copy of the old tree) and after it: 21 of 21 passed both times, about 30 minutes each, with the same result lines in every script (`blocks` page errors 0, `home`, `ear`, `songs`, `progress`, `technique`, `limits`, `focus`, `diag` and `backup` all clean; the only difference is `blocks` printing 162 say lines before and 161 after, which is random cue choice). `pwa.js` shows the page, stylesheet and all seven scripts served from the saved copy offline with the app running.
+
 ## 7 Oct 2026 (no app change, version label stays 2026-10-07.6): automated tests (no app change)
 
 One backlog item, "Automated tests in the repository". The app is unchanged.
